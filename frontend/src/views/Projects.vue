@@ -1,9 +1,24 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import ProjectList from '../components/ProjectList.vue'
+import ProjectForm from '../components/ProjectForm.vue'
+import { useProjectStore } from '../stores/project'
+
+const projectStore = useProjectStore()
+const showCreateForm = ref(false)
 </script>
 
 <template>
   <div class="p-6">
-    <h1 class="text-3xl font-bold mb-6">项目列表</h1>
-    <p class="text-lg">项目管理功能开发中...</p>
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold">项目列表</h1>
+      <button class="btn btn-primary" @click="showCreateForm = true">
+        新建项目
+      </button>
+    </div>
+    
+    <ProjectList />
+    
+    <ProjectForm v-if="showCreateForm" @close="showCreateForm = false" />
   </div>
 </template>
