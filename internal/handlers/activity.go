@@ -3,7 +3,7 @@ package handlers
 import (
 	"fmt"
 
-	"project-document-system/internal/database"
+	"Pebble/internal/database"
 )
 
 type ActivityHandler struct{}

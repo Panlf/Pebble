@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	rt "runtime"
 
-	"project-document-system/internal/database"
-	"project-document-system/internal/handlers"
+	"Pebble/internal/database"
+	"Pebble/internal/handlers"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"project-document-system/internal/crypto"
-	"project-document-system/internal/database"
+	"Pebble/internal/crypto"
+	"Pebble/internal/database"
 
 	"github.com/google/uuid"
 )

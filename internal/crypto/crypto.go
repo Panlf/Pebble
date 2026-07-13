@@ -71,9 +71,18 @@ func EncryptFile(inputPath, outputPath, password, salt string) error {
 		return fmt.Errorf("failed to write nonce: %w", err)
 	}
 
-	ciphertext := gcm.Seal(nil, nonce, nil, nil)
-	if _, err := io.Copy(outputFile, inputFile); err != nil {
-		return fmt.Errorf("failed to copy file: %w", err)
+	// Read the input file content
+	inputContent, err := io.ReadAll(inputFile)
+	if err != nil {
+		return fmt.Errorf("failed to read input file: %w", err)
+	}
+
+	// Encrypt the content
+	ciphertext := gcm.Seal(nil, nonce, inputContent, nil)
+
+	// Write the encrypted content
+	if _, err := outputFile.Write(ciphertext); err != nil {
+		return fmt.Errorf("failed to write encrypted content: %w", err)
 	}
 
 	return nil

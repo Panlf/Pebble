@@ -1,12 +1,13 @@
 package handlers
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"project-document-system/internal/crypto"
-	"project-document-system/internal/database"
+	"Pebble/internal/crypto"
+	"Pebble/internal/database"
 
 	"github.com/google/uuid"
 )
@@ -86,7 +87,7 @@ func (h *DocumentHandler) GetDocument(id string) (*database.Document, error) {
 }
 
 func (h *DocumentHandler) ListDocuments(projectID string, issueID *string) ([]database.Document, error) {
-	var rows *database.sql.Rows
+	var rows *sql.Rows
 	var err error
 
 	if issueID != nil {
