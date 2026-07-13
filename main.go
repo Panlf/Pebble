@@ -3,15 +3,21 @@ package main
 import (
 	"context"
 	"embed"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"log"
+	"os"
+	"path/filepath"
 	rt "runtime"
+
+	"project-document-system/internal/database"
+	"project-document-system/internal/handlers"
+
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed frontend/dist
@@ -24,15 +30,30 @@ func main() {
 	// Create an instance of the app structure
 	app := NewApp()
 
+	// Initialize database
+	homeDir, _ := os.UserHomeDir()
+	dbPath := filepath.Join(homeDir, "砾石", "砾石.db")
+	if err := database.InitDB(dbPath); err != nil {
+		log.Fatal(err)
+	}
+	defer database.Close()
+
+	// Create handlers
+	projectHandler := handlers.NewProjectHandler()
+	issueHandler := handlers.NewIssueHandler()
+	documentHandler := handlers.NewDocumentHandler()
+	tagHandler := handlers.NewTagHandler()
+	searchHandler := handlers.NewSearchHandler()
+	settingsHandler := handlers.NewSettingsHandler()
+	activityHandler := handlers.NewActivityHandler()
+
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:             "wails-template-vue3",
+		Title:             "砾石",
 		Width:             1024,
 		Height:            768,
 		MinWidth:          1024,
 		MinHeight:         768,
-		// MaxWidth:          1280,
-		// MaxHeight:         800,
 		DisableResize:     false,
 		Fullscreen:        false,
 		Frameless:         rt.GOOS != "darwin",
@@ -44,10 +65,9 @@ func main() {
 			Handler:    nil,
 			Middleware: nil,
 		},
-		DragAndDrop:   DragAndDropOptions(),
+		DragAndDrop: DragAndDropOptions(),
 		OnDomReady: func(ctx context.Context) {
 			runtime.OnFileDrop(ctx, func(x, y int, paths []string) {
-
 			})
 		},
 		Menu:             nil,
@@ -59,13 +79,19 @@ func main() {
 		WindowStartState: options.Normal,
 		Bind: []interface{}{
 			app,
+			projectHandler,
+			issueHandler,
+			documentHandler,
+			tagHandler,
+			searchHandler,
+			settingsHandler,
+			activityHandler,
 		},
 		// Windows platform specific options
 		Windows: &windows.Options{
 			WebviewIsTransparent: true,
 			WindowIsTranslucent:  true,
 			DisableWindowIcon:    true,
-			// DisableFramelessWindowDecorations: false,
 			WebviewUserDataPath: "",
 			BackdropType:        windows.Acrylic,
 		},
@@ -76,7 +102,7 @@ func main() {
 			WebviewIsTransparent: true,
 			WindowIsTranslucent:  true,
 			About: &mac.AboutInfo{
-				Title:   "wails-template-vue3",
+				Title:   "砾石",
 				Message: "",
 				Icon:    icon,
 			},
@@ -87,6 +113,7 @@ func main() {
 		log.Fatal(err)
 	}
 }
+
 func DragAndDropOptions() *options.DragAndDrop {
 	if rt.GOOS == "windows" {
 		return &options.DragAndDrop{
