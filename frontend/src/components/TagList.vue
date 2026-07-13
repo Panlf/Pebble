@@ -7,10 +7,6 @@ const tagStore = useTagStore()
 onMounted(() => {
   tagStore.fetchTags()
 })
-
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString('zh-CN')
-}
 </script>
 
 <template>

@@ -2,9 +2,7 @@
 import { ref } from 'vue'
 import ProjectList from '../components/ProjectList.vue'
 import ProjectForm from '../components/ProjectForm.vue'
-import { useProjectStore } from '../stores/project'
 
-const projectStore = useProjectStore()
 const showCreateForm = ref(false)
 </script>
 

@@ -32,6 +32,12 @@ function handleResultClick(result: any) {
   }
 }
 
+function handleBlur() {
+  setTimeout(() => {
+    showResults.value = false
+  }, 200)
+}
+
 function getTypeIcon(type: string) {
   const iconMap: Record<string, string> = {
     'project': '📁',
@@ -62,7 +68,7 @@ function getTypeName(type: string) {
         placeholder="搜索项目、问题、文档、标签..." 
         class="input input-bordered w-full"
         @focus="showResults = !!query.trim()"
-        @blur="setTimeout(() => showResults = false, 200)"
+        @blur="handleBlur"
       />
       <button class="btn btn-square">
         <span class="material-symbols">search</span>

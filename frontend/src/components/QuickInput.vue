@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useQuickInputStore } from '../stores/quickInput'
 import { useProjectStore } from '../stores/project'
 import { useIssueStore } from '../stores/issue'
@@ -12,10 +12,6 @@ const title = ref('')
 const description = ref('')
 const error = ref('')
 const isSubmitting = ref(false)
-
-const selectedProject = computed(() => 
-  projectStore.projects.find(p => p.id === quickInputStore.selectedProjectId)
-)
 
 async function handleSubmit() {
   if (!title.value) {
