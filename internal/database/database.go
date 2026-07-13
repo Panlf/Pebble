@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 var DB *sql.DB
@@ -18,7 +18,7 @@ func InitDB(dbPath string) error {
 	}
 
 	var err error
-	DB, err = sql.Open("sqlite3", dbPath+"?_journal_mode=WAL")
+	DB, err = sql.Open("sqlite", dbPath+"?_journal_mode=WAL")
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
