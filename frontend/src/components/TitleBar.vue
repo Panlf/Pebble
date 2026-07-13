@@ -3,7 +3,6 @@ import WindowControls from './WindowControls.vue';
 import DarkMode from './DarkMode.vue';
 import { computed } from 'vue';
 
-// 定义props
 interface Props {
   title?: string;
   showIcon?: boolean;
@@ -11,15 +10,13 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
-  title: 'Wails Template Vue3',
+  title: '砾石',
   showIcon: true,
-  iconSrc: '/src/assets/vue.svg'
+  iconSrc: '/src/assets/pebble-icon.svg'
 });
 
-// 检查是否为Mac平台
 const isMac = navigator.userAgent.toUpperCase().indexOf('MAC') >= 0;
 
-// 计算标题栏样式
 const titleBarClass = computed(() => {
   return [
     'title-bar',
@@ -30,21 +27,30 @@ const titleBarClass = computed(() => {
 
 <template>
   <div :class="titleBarClass" style="--wails-draggable: drag">
-    <!-- 左侧：应用图标和标题 -->
     <div class="title-section">
-      <img 
-        v-if="showIcon" 
-        :src="iconSrc" 
-        alt="App Icon" 
-        class="app-icon"
-      />
+      <div class="app-icon-container">
+        <svg class="app-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="8" cy="12" r="3" fill="url(#gradient1)" opacity="0.8"/>
+          <circle cx="14" cy="8" r="2" fill="url(#gradient2)" opacity="0.6"/>
+          <circle cx="16" cy="14" r="2.5" fill="url(#gradient1)" opacity="0.7"/>
+          <circle cx="10" cy="16" r="1.5" fill="url(#gradient2)" opacity="0.5"/>
+          <defs>
+            <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#667eea"/>
+              <stop offset="100%" stop-color="#764ba2"/>
+            </linearGradient>
+            <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#f093fb"/>
+              <stop offset="100%" stop-color="#f5576c"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
       <h1 class="app-title">{{ title }}</h1>
     </div>
     
-    <!-- 中间：可拖拽区域 -->
     <div class="drag-region"></div>
     
-    <!-- 右侧：主题切换和窗口控制按钮 -->
     <div class="controls-section" style="--wails-draggable: none">
       <div class="theme-toggle">
         <DarkMode />
@@ -56,48 +62,64 @@ const titleBarClass = computed(() => {
 
 <style scoped>
 .title-bar {
-  @apply flex items-center justify-between h-8 px-3 select-none;
-  /* 增强亚克力毛玻璃透明效果 */
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(25px) saturate(2.0);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  @apply flex items-center justify-between h-12 px-4 select-none;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px) saturate(1.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   position: relative;
   z-index: 1000;
-  /* 增强毛玻璃质感 */
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    0 1px 3px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .dark .title-bar {
-  background: rgba(30, 41, 59, 0.6);
-  backdrop-filter: blur(25px) saturate(2.0);
-  border-bottom: 1px solid rgba(71, 85, 105, 0.2);
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(20px) saturate(1.8);
+  border-bottom: 1px solid rgba(71, 85, 105, 0.3);
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .title-bar-mac {
-  @apply pl-20; /* 为Mac的红绿灯按钮留出空间 */
+  @apply pl-20;
 }
 
 .title-bar-windows {
-  @apply pl-3;
+  @apply pl-4;
 }
 
 .title-section {
-  @apply flex items-center gap-2 flex-shrink-0;
+  @apply flex items-center gap-3 flex-shrink-0;
+}
+
+.app-icon-container {
+  @apply flex items-center justify-center;
+  width: 32px;
+  height: 32px;
 }
 
 .app-icon {
-  @apply w-4 h-4 object-contain drop-shadow-sm;
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 2px 4px rgba(102, 126, 234, 0.3));
 }
 
 .app-title {
-  @apply text-sm font-semibold text-gray-700 dark:text-gray-200 truncate;
-  max-width: 200px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  @apply text-lg font-semibold;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+}
+
+.dark .app-title {
+  background: linear-gradient(135deg, #a5b4fc, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .drag-region {
@@ -111,17 +133,17 @@ const titleBarClass = computed(() => {
 
 .controls-section {
   @apply flex items-center flex-shrink-0;
-  border-radius: 4px;
+  border-radius: 8px;
   overflow: hidden;
   gap: 4px;
 }
 
 .theme-toggle {
   @apply flex items-center justify-center;
-  width: 32px;
-  height: 32px;
-  margin-right: 2px;
-  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  margin-right: 4px;
+  border-radius: 8px;
   transition: all 0.2s ease-in-out;
   color: #6b7280;
 }
@@ -131,18 +153,17 @@ const titleBarClass = computed(() => {
 }
 
 .theme-toggle:hover {
-  background-color: rgba(156, 163, 175, 0.1);
-  color: #374151;
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
 }
 
 .dark .theme-toggle:hover {
-  background-color: rgba(156, 163, 175, 0.15);
-  color: #d1d5db;
+  background: rgba(165, 180, 252, 0.15);
+  color: #a5b4fc;
 }
 
-/* 让主题切换按钮内的图标更小一些 */
 .theme-toggle :deep(button) {
-  font-size: 14px !important;
+  font-size: 16px !important;
   margin: 0 !important;
   padding: 0 !important;
   background: none !important;
@@ -156,12 +177,10 @@ const titleBarClass = computed(() => {
   background: none !important;
 }
 
-/* 在Mac上隐藏窗口控制按钮，因为系统会提供 */
 .title-bar-mac .controls-section {
   @apply hidden;
 }
 
-/* 增强亚克力毛玻璃光泽效果 */
 .title-bar::before {
   content: '';
   position: absolute;
@@ -171,7 +190,7 @@ const titleBarClass = computed(() => {
   height: 1px;
   background: linear-gradient(90deg,
     transparent,
-    rgba(255, 255, 255, 0.8),
+    rgba(102, 126, 234, 0.5),
     transparent
   );
   opacity: 0.6;
@@ -180,24 +199,9 @@ const titleBarClass = computed(() => {
 .dark .title-bar::before {
   background: linear-gradient(90deg,
     transparent,
-    rgba(255, 255, 255, 0.2),
+    rgba(165, 180, 252, 0.3),
     transparent
   );
   opacity: 0.4;
-}
-
-/* 添加亚克力材质的噪点纹理效果 */
-.title-bar::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image:
-    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0);
-  background-size: 20px 20px;
-  opacity: 0.3;
-  pointer-events: none;
 }
 </style>
