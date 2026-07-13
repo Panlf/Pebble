@@ -6,12 +6,12 @@ import { onMounted } from 'vue';
 
 const themeStore = useThemeStore();
 
-// 侧边栏菜单配置
 const menuItems = [
-  { text: "首页", href: "/home", icon: "material-symbols:home-app-logo" },
+  { text: "首页", href: "/", icon: "material-symbols:home-app-logo" },
+  { text: "项目管理", href: "/projects", icon: "material-symbols:folder" },
+  { text: "设置", href: "/settings", icon: "material-symbols:settings" },
 ];
 
-// 初始化主题
 onMounted(() => {
   themeStore.initTheme();
 });
@@ -20,7 +20,7 @@ onMounted(() => {
 <template>
   <div class="flex flex-col h-screen">
     <!-- 顶部标题栏 -->
-    <TitleBar title="Wails Template Vue3" />
+    <TitleBar title="项目文档管理系统" />
 
     <!-- 主要内容区域 -->
     <main class="flex flex-1 overflow-hidden">
