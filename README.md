@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🪨 Pebble · 运维工作台
+# 🧱 Pebble · 运维工作台
 
 **面向驻场软件项目运维工程师的个人工作台**
 
@@ -134,6 +134,7 @@ Pebble/
 ├── ops-workbench.html        # 工作台应用本体（单文件，全部功能）
 ├── server.ps1                # 本地静态服务器（HttpListener，端口 8730）
 ├── 启动工作台.bat            # 一键启动器（Windows）
+├── LICENSE                   # MIT 开源协议
 └── README.md
 ```
 
@@ -164,7 +165,7 @@ Pebble/
 
 ## 📄 License
 
-MIT（如需开源协议文本，请按需补充 `LICENSE` 文件）
+MIT，完整协议文本见 [LICENSE](LICENSE) 文件
 
 ---
 
