@@ -1,0 +1,2346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>运维工作台 · 驻场项目管理</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%232f6fed'/%3E%3Cg transform='translate(12,12) scale(1)'%3E%3Cpath d='M14.7 6.3a4.5 4.5 0 0 0 6 6L14 19a2.1 2.1 0 0 1-3-3l6.7-6.7zM4 4l4.5 2.5L11 11l-2 2-4.5-2.5L4 4z' fill='%23fff'/%3E%3Ccircle cx='5' cy='19' r='2' fill='%23fff'/%3E%3C/g%3E%3C/svg%3E">
+<!-- 本工作台为本地单文件 HTML。数据保存为你指定的本地文件夹中的真实文件：data.json（项目/任务元数据）+ attachments/（图片与文件附件原件）。不依赖浏览器缓存，清缓存/换机不丢数据。需 Chrome / Edge 打开（File System Access API）。 -->
+<style>
+:root{
+  --primary:#2f6fed; --primary-dark:#1d4fc4; --primary-bg:#e8effd;
+  --bg:#f3f5f9; --card:#ffffff; --line:#e5e9f0;
+  --text:#1f2937; --text2:#6b7280; --text3:#9aa3b2;
+  --red:#e5484d; --red-bg:#fdebec; --orange:#f59e0b; --orange-bg:#fdf3e3;
+  --green:#16a34a; --green-bg:#e8f7ee; --gray:#64748b; --gray-bg:#eef1f5;
+  --radius:12px; --shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",Roboto,sans-serif;
+  background:var(--bg); color:var(--text); font-size:15px; line-height:1.55;
+  padding-bottom:calc(24px + env(safe-area-inset-bottom));
+}
+button{font-family:inherit; cursor:pointer; border:none; background:none; font-size:14px;}
+input,select,textarea{
+  font-family:inherit; font-size:16px; color:var(--text);
+  border:1px solid var(--line); border-radius:8px; padding:9px 12px; background:#fff;
+  outline:none; width:100%;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--primary); box-shadow:0 0 0 3px rgba(47,111,237,.12);}
+textarea{resize:vertical; min-height:80px;}
+label{font-size:13px; color:var(--text2); display:block; margin-bottom:5px; font-weight:600;}
+
+/* ============ 顶栏 ============ */
+.topbar{background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:50;}
+.topbar-inner{max-width:1080px; margin:0 auto; padding:12px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+.brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:17px; flex:1; min-width:0;}
+.brand .logo{width:34px;height:34px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;flex:none;}
+.brand .sub{font-size:12px; color:var(--text3); font-weight:400; display:block; margin-top:1px;}
+.top-actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.dir-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--green);background:var(--green-bg);padding:4px 10px;border-radius:999px;font-weight:600;border:1px solid transparent;cursor:pointer;min-height:32px;}
+.dir-badge:hover{border-color:var(--green);}
+.dir-badge.off{color:var(--orange);background:var(--orange-bg);}
+.dir-badge .dirname{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:0 16px; border-radius:10px; font-weight:600; font-size:14px; transition:.15s; border:1px solid var(--line); background:#fff; color:var(--text);}
+.btn:hover{border-color:var(--primary); color:var(--primary);}
+.btn-primary{background:var(--primary); color:#fff; border-color:var(--primary);}
+.btn-primary:hover{background:var(--primary-dark); color:#fff;}
+.btn-danger{color:var(--red); border-color:#f3c1c3;}
+.btn-danger:hover{background:var(--red-bg);}
+.btn-sm{min-height:36px; padding:0 12px; font-size:13px; border-radius:8px;}
+.btn-icon{width:36px; min-height:36px; padding:0; border-radius:8px; display:inline-flex; align-items:center; justify-content:center;}
+
+/* ============ 提示条 ============ */
+.hint{max-width:1080px; margin:12px 16px 0; padding:10px 14px; border-radius:10px; font-size:13px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.hint-warn{background:var(--orange-bg); color:#92600a; border:1px solid #f2ddb0;}
+
+/* ============ Tab 导航 ============ */
+.tabs{max-width:1080px; margin:14px auto 0; padding:0 16px; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{min-height:44px; padding:0 18px; border-radius:10px; color:var(--text2); font-weight:600; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;}
+.tab.active{background:var(--primary); color:#fff;}
+.tab:not(.active):hover{background:#fff; color:var(--primary);}
+
+/* ============ 主体 ============ */
+main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
+.panel{display:none;}
+.panel.active{display:block; animation:fadeIn .2s;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin-bottom:14px;}
+.card-title{font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap;}
+.card-title .cnt{font-size:12px; color:var(--text3); font-weight:500;}
+.card-title .spacer{flex:1;}
+
+/* ============ 徽章 ============ */
+.badge{display:inline-flex;align-items:center;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;line-height:1.6;white-space:nowrap;}
+.badge.p0{background:var(--red-bg);color:var(--red);}
+.badge.p1{background:var(--orange-bg);color:#b45309;}
+.badge.p2{background:var(--gray-bg);color:var(--gray);}
+.badge.st-todo{background:var(--gray-bg);color:var(--gray);}
+.badge.st-doing{background:var(--primary-bg);color:var(--primary);}
+.badge.st-done{background:var(--green-bg);color:var(--green);}
+.proj-tag{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:6px;background:var(--primary-bg);color:var(--primary);white-space:nowrap;}
+.proj-tag .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none;}
+.proj-tag.paused{background:var(--gray-bg);color:var(--gray);}
+.proj-tag.finished{background:var(--green-bg);color:var(--green);}
+
+/* ============ 今天要处理 ============ */
+.today-section{margin-bottom:4px;}
+.today-section + .today-section{margin-top:18px; padding-top:14px; border-top:1px dashed var(--line);}
+.today-section h3{font-size:13px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+.today-section h3 .cnt{color:var(--text3); font-weight:500;}
+.task-row{display:flex; align-items:flex-start; gap:12px; padding:11px 12px; border-radius:10px; border:1px solid var(--line); background:#fff; margin-bottom:8px; flex-wrap:wrap;}
+.task-row.overdue{border-color:#f3c1c3; background:#fffafa;}
+.task-row.done-row{opacity:.62;}
+.task-row .tr-main{flex:1; min-width:220px;}
+.task-row .tr-title{font-weight:600; font-size:15px; word-break:break-all;}
+.task-row .tr-meta{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; font-size:12px; color:var(--text2);}
+.task-row .tr-actions{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+.tr-solution{font-size:13px; color:var(--text2); margin-top:6px; background:var(--bg); border-radius:8px; padding:7px 10px; white-space:pre-wrap; word-break:break-all;}
+.tr-solution b{color:var(--green);}
+
+/* ============ 表单 ============ */
+.form-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px;}
+.form-grid .span2{grid-column:span 2;}
+.form-grid .span4{grid-column:span 4;}
+.quick-add{display:grid; grid-template-columns:150px 1fr 170px 120px auto; gap:10px; align-items:end;}
+.empty{padding:28px 10px; text-align:center; color:var(--text3); font-size:14px;}
+.empty svg{margin-bottom:8px; opacity:.4;}
+
+/* ============ 任务列表 ============ */
+.filters{display:grid; grid-template-columns:1fr 170px 150px 170px; gap:10px; margin-bottom:14px;}
+.task-full{border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; background:#fff;}
+.task-full .tf-top{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.task-full .tf-title{font-weight:700; font-size:15px; flex:1; min-width:180px; word-break:break-all;}
+.task-full.done .tf-title{text-decoration:line-through; color:var(--text2);}
+.task-full .tf-desc{font-size:13px; color:var(--text2); margin-top:6px; white-space:pre-wrap; word-break:break-word;}
+.task-full .tf-foot{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px; font-size:12px; color:var(--text3);}
+
+/* ============ 项目卡片 ============ */
+.proj-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px;}
+.proj-card{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:10px;}
+.proj-card .pc-name{font-size:16px; font-weight:700; word-break:break-all;}
+.proj-card .pc-note{font-size:13px; color:var(--text2); word-break:break-all;}
+.proj-stats{display:flex; gap:8px; flex-wrap:wrap;}
+.stat-chip{font-size:12px; background:var(--bg); border-radius:8px; padding:4px 10px; color:var(--text2);}
+.stat-chip b{color:var(--text); font-size:14px;}
+.stat-chip.ok b{color:var(--green);}
+.proj-card .pc-actions{display:flex; gap:8px; margin-top:auto; padding-top:6px; flex-wrap:wrap;}
+
+/* ============ 周报 ============ */
+.week-nav{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
+.week-nav .range{font-size:16px; font-weight:700; font-variant-numeric:tabular-nums;}
+.stat-cards{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px;}
+.stat-card{background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px;}
+.stat-card .sc-num{font-size:24px; font-weight:800; font-variant-numeric:tabular-nums;}
+.stat-card .sc-label{font-size:12px; color:var(--text2); margin-top:2px;}
+.stat-card.c-blue .sc-num{color:var(--primary);}
+.stat-card.c-green .sc-num{color:var(--green);}
+.stat-card.c-orange .sc-num{color:var(--orange);}
+.stat-card.c-gray .sc-num{color:var(--gray);}
+.weekly-text{width:100%; min-height:300px; font-size:14px; font-family:inherit; line-height:1.7;}
+
+/* ============ 弹窗 ============ */
+.mask{position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:100; display:none; align-items:flex-start; justify-content:center; padding:24px 14px; overflow-y:auto;}
+.mask.show{display:flex;}
+.modal{background:#fff; border-radius:16px; width:100%; max-width:680px; padding:20px; margin:auto 0;}
+.modal-head{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+.modal-head h2{font-size:17px; flex:1; word-break:break-all;}
+.modal-sec{margin-bottom:18px;}
+.modal-sec h4{font-size:13px; color:var(--text2); font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px;}
+.modal-foot{display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; padding-top:6px;}
+
+/* ============ 附件 ============ */
+.att-zone{border:1.5px dashed var(--line); border-radius:10px; padding:12px; text-align:center; color:var(--text3); font-size:13px; cursor:pointer; transition:.15s; min-height:56px; display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;}
+.att-zone:hover{border-color:var(--primary); color:var(--primary); background:var(--primary-bg);}
+.att-zone.dragover{border-color:var(--primary); color:var(--primary); background:var(--primary-bg); border-style:solid; transform:scale(1.01);}
+.sol-item{border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px; background:var(--card);}
+.sol-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:12px; color:var(--text3);}
+.sol-body{font-size:13px; line-height:1.6; white-space:pre-wrap; color:var(--text); word-break:break-word;}
+.sol-del{color:var(--red); cursor:pointer; font-size:12px; border:none; background:none; padding:2px 6px;}
+.att-list{display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;}
+.att-img{position:relative; width:86px; height:86px; border-radius:10px; overflow:hidden; border:1px solid var(--line); cursor:zoom-in; background:var(--bg); flex:none;}
+.att-img img{width:100%; height:100%; object-fit:cover; display:block;}
+.att-img .del{position:absolute; top:3px; right:3px; width:22px; height:22px; border-radius:6px; background:rgba(15,23,42,.6); color:#fff; display:flex; align-items:center; justify-content:center;}
+.att-file{display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-size:13px; background:#fff; max-width:100%;}
+.att-file .fname{max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; word-break:break-all;}
+.att-file .fsize{color:var(--text3); font-size:12px; flex:none;}
+.img-preview{position:fixed; inset:0; background:rgba(15,23,42,.88); z-index:200; display:none; align-items:center; justify-content:center; padding:20px; cursor:zoom-out;}
+.img-preview.show{display:flex;}
+.img-preview img{max-width:100%; max-height:100%; border-radius:8px;}
+
+/* ============ 工作目录欢迎层 ============ */
+#lockMask{z-index:90;}
+.lock-card{max-width:600px;}
+.lock-card .lc-icon{width:56px;height:56px;border-radius:14px;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
+.lock-card h2{text-align:center;font-size:19px;margin-bottom:8px;}
+.lock-card .lc-desc{font-size:14px;color:var(--text2);margin-bottom:14px;text-align:center;}
+.file-struct{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px;font-family:Consolas,Menlo,monospace;line-height:1.9;}
+.file-struct .c1{color:var(--primary);font-weight:700;}
+.file-struct .c2{color:var(--green);}
+.file-struct .cm{color:var(--text3);font-family:inherit;}
+.lock-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:12px;}
+.lock-note{font-size:12px;color:var(--text3);text-align:center;}
+.lock-note.warn{color:var(--red);font-weight:600;}
+
+/* ============ 知识库 ============ */
+.tag-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.tag-chip{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--bg);color:var(--text2);cursor:pointer;border:1px solid transparent;}
+.tag-chip:hover{border-color:var(--primary);color:var(--primary);}
+.tag-chip.active{background:var(--primary);color:#fff;}
+.ktag{display:inline-flex;align-items:center;font-size:12px;font-weight:600;padding:2px 9px;border-radius:6px;background:var(--primary-bg);color:var(--primary);}
+
+/* ============ 日历 ============ */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+.cal-wd{font-size:12px;color:var(--text3);text-align:center;font-weight:700;padding:4px 0;}
+.cal-cell{min-height:66px;border:1px solid var(--line);border-radius:8px;padding:6px;font-size:12px;cursor:pointer;background:#fff;transition:.12s;}
+.cal-cell:hover{border-color:var(--primary);}
+.cal-cell.other{opacity:.35;background:var(--bg);}
+.cal-cell.today{border-color:var(--primary);box-shadow:0 0 0 2px rgba(47,111,237,.15);}
+.cal-cell .cd{font-weight:700;font-size:13px;}
+.cal-cell .cv{margin-top:3px;display:flex;flex-wrap:wrap;gap:3px;}
+.cal-pill{font-size:11px;padding:1px 6px;border-radius:6px;background:var(--bg);color:var(--text2);}
+.cal-pill.red{background:var(--red-bg);color:var(--red);font-weight:700;}
+.cal-pill.green{background:var(--green-bg);color:var(--green);}
+.cal-pill.blue{background:var(--primary-bg);color:var(--primary);}
+
+/* ============ 统计 ============ */
+.progress{height:8px;border-radius:6px;background:var(--bg);overflow:hidden;}
+.progress i{display:block;height:100%;background:var(--green);border-radius:6px;}
+.bars{display:flex;align-items:flex-end;gap:3px;height:96px;padding-top:6px;}
+.bars .bar{flex:1;background:var(--primary);border-radius:3px 3px 0 0;min-height:3px;position:relative;opacity:.85;}
+.bars .bar:hover{opacity:1;}
+.bars .bar span{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text3);white-space:nowrap;}
+.bars-wrap{padding-bottom:24px;overflow-x:auto;}
+
+/* ============ 知识点 Markdown 渲染 ============ */
+.know-md{font-size:13px; line-height:1.75; color:var(--text); word-break:break-word;}
+.know-md p{margin:4px 0;}
+.know-md h4,.know-md h5,.know-md h6{margin:12px 0 4px; color:var(--text);}
+.know-md h4{font-size:15px;} .know-md h5{font-size:14px;} .know-md h6{font-size:13px; color:var(--text2);}
+.know-md ul,.know-md ol{margin:4px 0; padding-left:20px;}
+.know-md li{margin:2px 0;}
+.know-md code{background:var(--bg); border:1px solid var(--line); padding:1px 5px; border-radius:4px; font-family:Consolas,"Courier New",monospace; font-size:12px;}
+.know-md pre{background:var(--bg); border:1px solid var(--line); padding:10px 12px; border-radius:8px; overflow-x:auto; margin:6px 0;}
+.know-md pre code{background:none; border:none; padding:0;}
+.know-md blockquote{border-left:3px solid var(--primary); margin:6px 0; padding:2px 12px; color:var(--text2);}
+.know-md hr{border:none; border-top:1px solid var(--line); margin:10px 0;}
+.know-md a{color:var(--primary);}
+.know-md.collapse{max-height:132px; overflow:hidden; position:relative;}
+.know-md.collapse::after{content:""; position:absolute; left:0; right:0; bottom:0; height:40px; background:linear-gradient(transparent,#fff);}
+
+/* ============ Toast ============ */
+#toast{position:fixed; left:50%; bottom:calc(30px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(20px); background:#1f2937; color:#fff; padding:10px 20px; border-radius:10px; font-size:14px; opacity:0; pointer-events:none; transition:.25s; z-index:300; max-width:86vw; text-align:center;}
+#toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+/* ============ 移动端 ============ */
+@media (max-width:768px){
+  .quick-add{grid-template-columns:1fr 1fr;}
+  .quick-add .qa-title{grid-column:span 2;}
+  .form-grid{grid-template-columns:1fr 1fr;}
+  .form-grid .span2,.form-grid .span4{grid-column:span 2;}
+  .filters{grid-template-columns:1fr 1fr;}
+  .stat-cards{grid-template-columns:repeat(2,1fr);}
+  .task-row .tr-actions{width:100%;}
+  .task-row .tr-actions .btn{flex:1;}
+  .modal{padding:16px;}
+  .brand{font-size:15px;}
+  .top-actions .btn{min-height:40px; padding:0 10px; font-size:13px;}
+  .cal-cell{min-height:50px;padding:4px;}
+  .cal-grid{gap:4px;}
+  .cal-pill{font-size:10px;padding:1px 4px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= 顶栏 ================= -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M14.7 6.3a4.5 4.5 0 0 0 6 6L14 19a2.1 2.1 0 0 1-3-3l6.7-6.7zM4 4l4.5 2.5L11 11l-2 2-4.5-2.5L4 4z" fill="#fff"/><circle cx="5" cy="19" r="2" fill="#fff"/></svg>
+      </span>
+      <div>运维工作台<span class="sub">驻场项目 · 任务 · 复盘 · 知识库 · 周月报</span></div>
+    </div>
+    <div class="top-actions">
+      <button class="dir-badge off" id="dirBadge" onclick="openLock(false)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span id="dirBadgeText">本地文件 · 未连接</span>
+      </button>
+      <button class="btn btn-sm" id="btnExport">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        导出备份
+      </button>
+      <button class="btn btn-sm" id="btnImport">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 15V3m0 0L8 7m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        导入恢复
+      </button>
+      <button class="btn btn-sm" id="btnRestore" onclick="openRestore()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 4v6h6M20 20v-6h-6M20 9a8 8 0 00-14.3-3M4 15a8 8 0 0014.3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        备份恢复
+      </button>
+      <button class="btn btn-sm btn-danger" id="btnWipe">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m3 0l-1 13a2 2 0 01-2 2H9a2 2 0 01-2-2L6 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        清空数据
+      </button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+  </div>
+</header>
+
+<div class="hint hint-warn" id="backupHint" style="display:none">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="flex:none"><path d="M12 9v4m0 4h.01M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <span>数据已积累较多。数据本体在工作目录中，可直接整目录拷贝备份；也可导出单文件 JSON 快照。</span>
+  <button class="btn btn-sm" onclick="exportData()">立即备份</button>
+</div>
+
+<!-- ================= Tab ================= -->
+<nav class="tabs" id="tabs">
+  <button class="tab active" data-tab="today">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 8v4l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    今天
+  </button>
+  <button class="tab" data-tab="review">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    复盘
+  </button>
+  <button class="tab" data-tab="tasks">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 6h11M9 12h11M9 18h11M4 6l.6.6L7 4.8M4 12l.6.6L7 10.8M4 18l.6.6L7 16.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    任务
+  </button>
+  <button class="tab" data-tab="projects">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+    项目
+  </button>
+  <button class="tab" data-tab="weekly">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M8 3v3m8-3v3M3 9h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    周报
+  </button>
+  <button class="tab" data-tab="monthly">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 10h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zM8 3v4m8-4v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    月报
+  </button>
+  <button class="tab" data-tab="know">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 6.25v13m0-13A6.25 6.25 0 005 12.75m14 0A6.25 6.25 0 0012 6.25m0 13a6.25 6.25 0 01-6-4.5m12 0a6.25 6.25 0 01-6 4.5M5.5 8.5l2 2m9-2l-2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    知识库
+  </button>
+  <button class="tab" data-tab="stats">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 20V10m5 10V4m5 16v-7m5 7V8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    统计
+  </button>
+  <button class="tab" data-tab="calendar">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 9h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zM8 3v4m8-4v4M8 14h3v3H8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    日历
+  </button>
+</nav>
+
+<main>
+  <!-- ================= 今天 ================= -->
+  <section class="panel active" id="tab-today">
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#e5484d" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#e5484d" stroke-width="2" stroke-linecap="round"/></svg>
+        今天要处理
+        <span class="cnt" id="todayHint"></span>
+      </div>
+      <div id="todayArea"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14m-7-7h14" stroke="#2f6fed" stroke-width="2" stroke-linecap="round"/></svg>
+        快速新建任务
+      </div>
+      <div class="quick-add">
+        <div><label>日期</label><input type="date" id="qaDate"></div>
+        <div class="qa-title"><label>任务标题</label><input type="text" id="qaTitle" placeholder="例如：排查数据库连接告警" maxlength="100"></div>
+        <div><label>所属项目</label><select id="qaProject"></select></div>
+        <div><label>优先级</label><select id="qaPriority"><option value="P1">P1 高</option><option value="P0">P0 紧急</option><option value="P2">P2 常规</option></select></div>
+        <div><button class="btn btn-primary" style="width:100%" onclick="quickAdd()">添加</button></div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:8px;">提示：详细描述、图片与文件附件可在任务详情中补充，附件保存为工作目录中的真实文件。</div>
+    </div>
+    <div class="card" id="sampleCard" style="display:none">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 8v5m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/></svg>
+        示例数据
+        <span class="spacer"></span>
+        <button class="btn btn-sm" onclick="clearSample()">清空示例数据</button>
+      </div>
+      <div style="font-size:13px;color:var(--text2);">当前展示的是示例项目与任务，方便你了解工作台的效果。点击「清空示例数据」后即可开始录入真实工作内容。</div>
+    </div>
+  </section>
+
+  <!-- ================= 每日复盘 ================= -->
+  <section class="panel" id="tab-review">
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke="#2f6fed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        每日复盘
+        <span class="cnt" id="revState"></span>
+        <span class="spacer"></span>
+        <button class="btn btn-sm" onclick="copyReviewText()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2"/></svg>
+          复制复盘文本
+        </button>
+        <button class="btn btn-sm" onclick="exportReviewMd()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          导出 .md
+        </button>
+      </div>
+      <div class="week-nav">
+        <button class="btn btn-sm" onclick="shiftReviewDay(-1)">‹ 前一天</button>
+        <input type="date" id="revDate" style="width:170px" onchange="reviewBase=this.value;renderReview()">
+        <button class="btn btn-sm" onclick="shiftReviewDay(1)">后一天 ›</button>
+        <button class="btn btn-sm" onclick="goReviewToday()">今天</button>
+      </div>
+      <div class="modal-sec">
+        <h4>一、今日工作总结
+          <button class="btn btn-sm" onclick="genReviewSummary()">从当日任务生成</button>
+        </h4>
+        <textarea id="revSummary" style="min-height:110px" placeholder="点击「从当日任务生成」自动汇总当天任务与解决方案，也可在此手动补充当天整体情况…"></textarea>
+      </div>
+      <div class="modal-sec">
+        <h4>二、今日疑难点</h4>
+        <textarea id="revIssues" placeholder="今天卡住的问题、排查中的困惑、待向业主 / 厂商确认的事项……"></textarea>
+      </div>
+      <div class="modal-sec">
+        <h4>三、学习到的知识点
+          <button class="btn btn-sm" onclick="collectKnow()">按行收录到知识库</button>
+        </h4>
+        <textarea id="revLearned" placeholder="新掌握的命令、配置项、原理、踩坑经验……每行一条，写完点「按行收录到知识库」自动沉淀并支持打标签"></textarea>
+      </div>
+      <div class="modal-sec">
+        <h4>四、每日总结</h4>
+        <textarea id="revFeelings" style="min-height:100px" placeholder="写写一天的感受、体会、收获或想法……留给自己看的每日心得。"></textarea>
+      </div>
+      <div class="modal-sec">
+        <h4>复盘附件（截图、资料等，保存为工作目录中的本地文件）</h4>
+        <div class="att-zone" onclick="document.getElementById('revFile').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');handleRevFiles(event.dataTransfer.files)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          点击或拖入文件上传（截图、文档、命令输出等；图片自动压缩，最多 9 张）
+        </div>
+        <input type="file" id="revFile" multiple hidden>
+        <div class="att-list" id="attRevList"></div>
+      </div>
+      <div class="modal-foot" style="justify-content:flex-start">
+        <button class="btn btn-primary" onclick="saveReview()">保存复盘</button>
+        <button class="btn btn-danger" id="revDeleteBtn" style="display:none" onclick="deleteReview()">删除本日复盘</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h7" stroke="#2f6fed" stroke-width="2" stroke-linecap="round"/></svg>
+        复盘记录
+        <span class="cnt" id="revCnt"></span>
+      </div>
+      <div id="revList"></div>
+    </div>
+  </section>
+
+  <!-- ================= 任务 ================= -->
+  <section class="panel" id="tab-tasks">
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6h11M9 12h11M9 18h11" stroke="#2f6fed" stroke-width="2" stroke-linecap="round"/></svg>
+        任务列表
+        <span class="cnt" id="taskCnt"></span>
+        <span class="spacer"></span>
+        <button class="btn btn-primary btn-sm" onclick="openCreateModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          新建任务
+        </button>
+      </div>
+      <div class="filters">
+        <input type="text" id="fSearch" placeholder="搜索标题 / 描述 / 方案…" oninput="renderTasks()">
+        <select id="fProject" onchange="renderTasks()"><option value="">全部项目</option></select>
+        <select id="fStatus" onchange="renderTasks()">
+          <option value="">全部状态</option>
+          <option value="todo">待处理</option>
+          <option value="doing">进行中</option>
+          <option value="done">已完成</option>
+        </select>
+        <select id="fDate" onchange="renderTasks()">
+          <option value="">全部日期</option>
+          <option value="today">仅今天</option>
+          <option value="week">本周</option>
+          <option value="overdue">逾期未完成</option>
+        </select>
+      </div>
+      <div id="taskList"></div>
+    </div>
+  </section>
+
+  <!-- ================= 项目 ================= -->
+  <section class="panel" id="tab-projects">
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="#2f6fed" stroke-width="2" stroke-linejoin="round"/></svg>
+        项目管理
+        <span class="cnt" id="projCnt"></span>
+        <span class="spacer"></span>
+        <button class="btn btn-primary btn-sm" onclick="openProjectModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          新建项目
+        </button>
+      </div>
+      <div class="proj-grid" id="projGrid"></div>
+    </div>
+  </section>
+
+  <!-- ================= 周报 ================= -->
+  <section class="panel" id="tab-weekly">
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 3v3m8-3v3M3 9h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" stroke="#2f6fed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        每周工作总结
+      </div>
+      <div class="week-nav">
+        <button class="btn btn-sm" onclick="shiftWeek(-1)">‹ 上一周</button>
+        <span class="range" id="weekRange"></span>
+        <button class="btn btn-sm" onclick="shiftWeek(1)">下一周 ›</button>
+        <button class="btn btn-sm" onclick="goThisWeek()">本周</button>
+      </div>
+      <div class="stat-cards" id="weekStats"></div>
+      <div id="weekBody"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6h11M9 12h11M9 18h11M4 6l.6.6L7 4.8M4 12l.6.6L7 10.8M4 18l.6.6L7 16.8" stroke="#2f6fed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        周报文本
+        <span class="spacer"></span>
+        <button class="btn btn-primary btn-sm" onclick="buildWeeklyText()" id="btnGen">生成周报文本</button>
+        <button class="btn btn-sm" onclick="copyWeekly()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2"/></svg>
+          复制
+        </button>
+        <button class="btn btn-sm" onclick="exportWeeklyMd()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          导出 .md
+        </button>
+      </div>
+      <textarea class="weekly-text" id="weeklyText" readonly placeholder="点击「生成周报文本」后，自动汇总本周各项目的任务与解决方案，可一键复制到微信 / 邮件 / 周报系统。"></textarea>
+    </div>
+  </section>
+
+  <!-- ================= 月报 ================= -->
+  <section class="panel" id="tab-monthly">
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 10h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zM8 3v4m8-4v4" stroke="#2f6fed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        每月工作总结
+      </div>
+      <div class="week-nav">
+        <button class="btn btn-sm" onclick="shiftMonth(-1)">‹ 上个月</button>
+        <span class="range" id="monthRange"></span>
+        <button class="btn btn-sm" onclick="shiftMonth(1)">下个月 ›</button>
+        <button class="btn btn-sm" onclick="goThisMonth()">本月</button>
+      </div>
+      <div class="stat-cards" id="monthStats"></div>
+      <div id="monthBody"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6h11M9 12h11M9 18h11" stroke="#2f6fed" stroke-width="2" stroke-linecap="round"/></svg>
+        月报文本
+        <span class="spacer"></span>
+        <button class="btn btn-primary btn-sm" onclick="buildMonthlyText()">生成月报文本</button>
+        <button class="btn btn-sm" onclick="copyMonthly()">复制</button>
+        <button class="btn btn-sm" onclick="exportMonthlyMd()">导出 .md</button>
+      </div>
+      <textarea class="weekly-text" id="monthlyText" readonly placeholder="点击「生成月报文本」后，自动汇总当月各项目的任务、解决方案与复盘要点，可复制或导出为工作目录中的 .md 文件。"></textarea>
+    </div>
+  </section>
+
+  <!-- ================= 知识库 ================= -->
+  <section class="panel" id="tab-know">
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 6.25v13m0-13A6.25 6.25 0 005 12.75m14 0A6.25 6.25 0 0012 6.25m0 13a6.25 6.25 0 01-6-4.5m12 0a6.25 6.25 0 01-6 4.5M5.5 8.5l2 2m9-2l-2 2" stroke="#2f6fed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        知识库
+        <span class="cnt" id="knowCnt"></span>
+        <span class="spacer"></span>
+        <button class="btn btn-primary btn-sm" onclick="openKnowModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          新增知识点
+        </button>
+      </div>
+      <div class="filters" style="grid-template-columns:1fr; margin-bottom:10px;">
+        <input type="text" id="knowSearch" placeholder="搜索知识点内容 / 标签…" oninput="renderKnows()">
+      </div>
+      <div class="tag-chips" id="knowTags"></div>
+      <div id="knowList"></div>
+    </div>
+  </section>
+
+  <!-- ================= 统计 ================= -->
+  <section class="panel" id="tab-stats">
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 20V10m5 10V4m5 16v-7m5 7V8" stroke="#2f6fed" stroke-width="2" stroke-linecap="round"/></svg>
+        数据统计
+        <span class="cnt" id="statHint"></span>
+        <span class="spacer"></span>
+        <button class="btn btn-sm" onclick="copyStatsText()">复制统计文本</button>
+      </div>
+      <div class="stat-cards" id="statCards"></div>
+      <div id="statProjects"></div>
+      <div class="today-section" style="margin-top:16px">
+        <h3>近 30 天每日任务量</h3>
+        <div class="bars-wrap"><div class="bars" id="statBars"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 日历 ================= -->
+  <section class="panel" id="tab-calendar">
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 9h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zM8 3v4m8-4v4M8 14h3v3H8z" stroke="#2f6fed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        日历视图
+        <span class="cnt" id="calHint"></span>
+        <span class="spacer"></span>
+        <button class="btn btn-sm" onclick="shiftCalMonth(-1)">‹ 上月</button>
+        <span class="range" id="calRange"></span>
+        <button class="btn btn-sm" onclick="shiftCalMonth(1)">下月 ›</button>
+        <button class="btn btn-sm" onclick="goCalThisMonth()">本月</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">红色 = 当天有逾期未完成任务 · 绿色 = 已写复盘 · 蓝色 = 当日收录知识点 · 点击日期查看当天任务与复盘</div>
+      <div id="calGrid"></div>
+    </div>
+  </section>
+</main>
+
+<!-- ================= 工作目录连接层 ================= -->
+<div class="mask" id="lockMask">
+  <div class="modal lock-card">
+    <div class="lc-icon">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="#2f6fed" stroke-width="2" stroke-linejoin="round"/><path d="M10 14l1.8 1.8L15.5 12" stroke="#2f6fed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <h2 id="lockTitle">选择你的工作目录</h2>
+    <div class="lc-desc">所有数据将以<b>真实文件</b>形式保存在你指定的本地文件夹中——清浏览器缓存、重装系统、换电脑都不会丢，整个文件夹可直接拷贝或同步到网盘备份。</div>
+    <div class="file-struct">
+      <span class="c1">📁 你选择的工作目录</span><br>
+      ├── <span class="c2">data.json</span> <span class="cm">← 项目 / 任务 / 方案 / 复盘 / 知识点</span><br>
+      ├── <span class="c2">attachments</span><span class="cm">/ ← 图片、日志等附件原件</span><br>
+      ├── <span class="c2">backups</span><span class="cm">/ ← 自动备份快照（保留最近 10 份）</span><br>
+      └── <span class="c2">exports</span><span class="cm">/ ← 复盘 / 周报 / 月报导出的 .md 文件</span>
+    </div>
+    <div class="lock-btns">
+      <button class="btn btn-primary" id="lockPickBtn" onclick="pickDir()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        选择工作目录
+      </button>
+      <button class="btn" id="lockReconnectBtn" style="display:none" onclick="connectStored()">连接上次的工作目录</button>
+      <button class="btn" id="lockCloseBtn" style="display:none" onclick="closeLock()">关闭</button>
+    </div>
+    <div class="lock-note" id="lockNote">推荐通过文件夹中的「启动工作台.bat」启动 · 每次打开页面需点一次「连接」授权（浏览器安全机制）</div>
+    <div class="lock-note warn" id="lockSupport" style="display:none">当前浏览器不支持本地文件读写，请改用 Chrome 或 Edge 打开本文件。</div>
+    <div class="lock-note warn" id="lockProto" style="display:none">当前是直接双击打开（file:// 方式），浏览器会拦截本地目录读写。请关闭本页，改用工作台文件夹中的「启动工作台.bat」启动。</div>
+  </div>
+</div>
+
+<!-- ================= 任务详情弹窗 ================= -->
+<div class="mask" id="taskMask">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="tmTitle">任务详情</h2>
+      <button class="btn btn-icon" onclick="closeTaskModal()" aria-label="关闭">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="modal-sec">
+      <h4>基本信息</h4>
+      <div class="form-grid">
+        <div class="span2"><label>任务标题</label><input type="text" id="tmName" maxlength="100"></div>
+        <div><label>所属项目</label><select id="tmProject"></select></div>
+        <div><label>优先级</label><select id="tmPriority"><option value="P0">P0 紧急</option><option value="P1">P1 高</option><option value="P2">P2 常规</option></select></div>
+        <div><label>日期</label><input type="date" id="tmDate"></div>
+        <div><label>状态</label><select id="tmStatus"><option value="todo">待处理</option><option value="doing">进行中</option><option value="done">已完成</option></select></div>
+        <div><label>任务来源</label><select id="tmSource"><option>业主提出</option><option>内部巡检</option><option>其他</option></select></div>
+        <div class="span2" style="display:flex;align-items:flex-end;"><button class="btn btn-primary" style="width:100%" onclick="saveTaskBasic()">保存基本信息</button></div>
+        <div class="span4"><label>任务描述</label><textarea id="tmDesc" placeholder="问题现象、影响范围、业主反馈等"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-sec">
+      <h4>任务附件（保存为工作目录中的本地文件）</h4>
+      <div class="att-zone" onclick="document.getElementById('tmFileTask').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');handleFiles(event.dataTransfer.files,'task')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        点击或拖入文件上传（截图、日志、报错文件等；图片自动压缩，任务图片最多 9 张）
+      </div>
+      <input type="file" id="tmFileTask" multiple hidden>
+      <div class="att-list" id="attTaskList"></div>
+    </div>
+    <div class="modal-sec">
+      <h4>解决方案<span id="solCnt" style="font-weight:400;font-size:12px;color:var(--text3);margin-left:8px"></span></h4>
+      <div id="solHistory" style="margin-bottom:10px"></div>
+      <textarea id="tmSolution" style="min-height:110px" placeholder="记录本次排查过程、处理步骤、结论……每次保存生成一条记录，可多次追加（多日处理 / 业主返工时继续添加）。"></textarea>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="saveSolution()">添加方案记录</button>
+        <button class="btn" id="tmDoneBtn" onclick="toggleDone()">标记为已完成</button>
+      </div>
+      <div class="att-zone" style="margin-top:12px" onclick="document.getElementById('tmFileSol').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');handleFiles(event.dataTransfer.files,'sol')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 16l4.6-4.6a2 2 0 012.8 0L16 16m-2-2l1.6-1.6a2 2 0 012.8 0L20 14M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        上传方案附件（处理前后截图、补丁文件等，也可拖入）
+      </div>
+      <input type="file" id="tmFileSol" multiple hidden>
+      <div class="att-list" id="attSolList"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" onclick="deleteTaskFromModal()">删除任务</button>
+      <button class="btn" onclick="closeTaskModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 项目弹窗 ================= -->
+<div class="mask" id="projMask">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head"><h2 id="pmTitle">新建项目</h2>
+      <button class="btn btn-icon" onclick="closeProjModal()" aria-label="关闭">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="modal-sec"><label>项目名称</label><input type="text" id="pmName" maxlength="50" placeholder="例如：档案管理系统运维"></div>
+    <div class="modal-sec"><label>项目状态</label><select id="pmStatus"><option value="active">进行中</option><option value="paused">暂缓</option><option value="finished">已完结</option></select></div>
+    <div class="modal-sec"><label>备注（业主单位、驻场信息等）</label><textarea id="pmNote" placeholder="例如：业主为市档案馆，驻场周期 2026 全年"></textarea></div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="pmDelete" style="display:none" onclick="deleteProjectFromModal()">删除项目</button>
+      <button class="btn btn-primary" onclick="saveProject()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 知识点弹窗 ================= -->
+<div class="mask" id="knowMask">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head"><h2 id="kmTitle">新增知识点</h2>
+      <button class="btn btn-icon" onclick="$('knowMask').classList.remove('show')" aria-label="关闭">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="modal-sec"><label>知识点内容（手动输入，或导入 .md 文件）</label><textarea id="kmContent" placeholder="例如：LDAP 增量同步失败时，优先检查同步日志的时间戳"></textarea>
+      <div class="att-zone" style="margin-top:8px" onclick="document.getElementById('kmFile').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');importKnowFiles(event.dataTransfer.files)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        点击或拖入 .md / .markdown / .txt 文件，内容导入为知识点（导入后可继续编辑）
+      </div>
+      <input type="file" id="kmFile" accept=".md,.markdown,.txt" style="display:none">
+    </div>
+    <div class="modal-sec"><label>标签（用逗号或空格分隔，可多个）</label><input type="text" id="kmTags" placeholder="例如：数据库, 故障处理, Oracle"></div>
+    <div class="modal-sec"><label>日期</label><input type="date" id="kmDate"></div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="saveKnow()">保存</button>
+      <button class="btn" onclick="$('knowMask').classList.remove('show')">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 日期详情弹窗 ================= -->
+<div class="mask" id="dayMask">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head"><h2 id="dayTitle"></h2>
+      <button class="btn btn-icon" onclick="closeDayModal()" aria-label="关闭">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div id="dayBody"></div>
+    <div class="modal-foot" style="justify-content:flex-start">
+      <button class="btn btn-primary" onclick="dayGoReview()">去写 / 查看当日复盘</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 备份恢复弹窗 ================= -->
+<div class="mask" id="restoreMask">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head"><h2>从自动备份恢复</h2>
+      <button class="btn btn-icon" onclick="$('restoreMask').classList.remove('show')" aria-label="关闭">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">保存数据时会自动在工作目录 <b>backups/</b> 写入快照（间隔≥10 分钟，保留最近 10 份）。选择一份恢复，当前未备份的修改将被覆盖；附件文件不受影响。</div>
+    <div id="restoreList"></div>
+  </div>
+</div>
+
+<!-- ================= 二次确认弹窗 ================= -->
+<div class="mask" id="confirmMask">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head"><h2 id="cfTitle">确认操作</h2></div>
+    <div style="font-size:14px;color:var(--text2)" id="cfBody"></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeConfirm()">取消</button>
+      <button class="btn btn-danger" id="cfOk">确认</button>
+    </div>
+  </div>
+</div>
+
+<div class="img-preview" id="imgPreview" onclick="this.classList.remove('show')"><img id="imgPreviewEl" alt="预览"></div>
+<div id="toast"></div>
+
+<script>
+/* ========================================================
+ * 存储方案：本地工作目录（File System Access API）
+ * - data.json        项目 / 任务 / 方案元数据
+ * - attachments/     图片与文件附件（真实文件，独立写入）
+ * - 目录句柄持久化在 IndexedDB（仅存"指针"，缓存丢了只需重选一次目录）
+ * ======================================================== */
+
+/* ======================= 工具 ======================= */
+var $=function(id){return document.getElementById(id);};
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function todayStr(){var d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
+function p2(n){return n<10?'0'+n:''+n;}
+function addDays(str,n){var d=new Date(str+'T00:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
+function dayDiff(a,b){var d1=new Date(a+'T00:00:00'),d2=new Date(b+'T00:00:00');return Math.round((d1-d2)/86400000);}
+function weekStart(str){var d=new Date(str+'T00:00:00');var w=(d.getDay()+6)%7;d.setDate(d.getDate()-w);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
+function addMonths(str,n){var y=+str.slice(0,4),m=+str.slice(5,7)-1+n;var d=new Date(y,m,1);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-01';}
+function monthRangeOf(base){var ms=base.slice(0,7)+'-01';var dim=new Date(+base.slice(0,4),+base.slice(5,7),0).getDate();return {ws:ms,we:base.slice(0,7)+'-'+p2(dim)};}
+function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';return (b/1048576).toFixed(1)+' MB';}
+function toast(msg){var t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._tm);t._tm=setTimeout(function(){t.classList.remove('show');},2400);}
+var P_NAME={'P0':'P0 紧急','P1':'P1 高','P2':'P2 常规'};
+var S_NAME={todo:'待处理',doing:'进行中',done:'已完成'};
+var PROJ_S={active:'进行中',paused:'暂缓',finished:'已完结'};
+var OLD_LS_KEY='wb_ops_data'; // 旧版（浏览器存储版）数据，用于迁移
+
+/* ======================= 状态 ======================= */
+var projects=[],tasks=[],reviews=[],knows=[],meta={sample:false};
+var currentTaskId=null,currentProjId=null,currentKnowId=null;
+var reviewBase=todayStr(),weekBase=todayStr(),monthBase=todayStr(),calBase=todayStr(),dayBase=todayStr();
+var knowFilterTag='',knowOpen={},lastBackupTs=0;
+var dirHandle=null,hasStoredHandle=false;
+var saveTimer=null,saveChain=Promise.resolve();
+var urlCache={}; // 附件 objectURL 缓存
+
+/* ======================= 句柄持久化（IndexedDB，仅存目录"指针"） ======================= */
+function openHandleDB(){return new Promise(function(res,rej){
+  var r=indexedDB.open('wb_ops_dirhandle',1);
+  r.onupgradeneeded=function(e){var db=e.target.result;if(!db.objectStoreNames.contains('handles'))db.createObjectStore('handles',{keyPath:'k'});};
+  r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};
+});}
+function storeHandle(h){return openHandleDB().then(function(db){return new Promise(function(res,rej){
+  var tx=db.transaction('handles','readwrite');tx.objectStore('handles').put({k:'dir',h:h});
+  tx.oncomplete=function(){res();};tx.onerror=function(){rej(tx.error);};
+});});}
+function loadHandle(){return openHandleDB().then(function(db){return new Promise(function(res){
+  try{
+    var tx=db.transaction('handles','readonly');
+    var rq=tx.objectStore('handles').get('dir');
+    rq.onsuccess=function(){res(rq.result?rq.result.h:null);};
+    rq.onerror=function(){res(null);};
+  }catch(e){res(null);}
+});});}
+
+/* ======================= 连接流程 ======================= */
+async function pickDir(){
+  if(!window.showDirectoryPicker){toast('当前浏览器不支持本地目录读写，请用 Chrome / Edge');return;}
+  try{
+    var h=await window.showDirectoryPicker({mode:'readwrite',id:'ops_workspace'});
+    dirHandle=h;
+    await storeHandle(h);
+    await connectFinish();
+  }catch(e){
+    if(e&&e.name!=='AbortError')toast('打开目录失败：'+(e.message||e.name));
+  }
+}
+async function connectStored(){
+  var h=await loadHandle();
+  if(!h){toast('没有已保存的工作目录，请先选择');return;}
+  try{
+    var perm=await h.requestPermission({mode:'readwrite'});
+    if(perm!=='granted'){toast('未获得目录读写权限');return;}
+    dirHandle=h;
+    await connectFinish();
+  }catch(e){toast('连接失败：'+(e.message||e.name));}
+}
+async function connectFinish(){
+  await ensureDirStruct();
+  await initData();
+  closeLock();
+  updateConnUI();
+  renderAll();
+}
+async function ensureDirStruct(){
+  await dirHandle.getDirectoryHandle('attachments',{create:true});
+  await dirHandle.getFileHandle('data.json',{create:true});
+}
+function updateConnUI(){
+  var b=$('dirBadge');
+  if(dirHandle){
+    b.classList.remove('off');
+    $('dirBadgeText').textContent='已连接：'+dirHandle.name;
+    b.title='数据保存位置：'+dirHandle.name+'（点击可更换工作目录）';
+  }else{
+    b.classList.add('off');
+    $('dirBadgeText').textContent='本地文件 · 未连接';
+  }
+}
+function openLock(switching){
+  $('lockTitle').textContent=switching?'更换工作目录':'选择你的工作目录';
+  $('lockPickBtn').textContent=switching?'选择新的工作目录':'选择工作目录';
+  $('lockReconnectBtn').style.display=hasStoredHandle?'':'none';
+  $('lockCloseBtn').style.display=switching?'':'none';
+  $('lockSupport').style.display=window.showDirectoryPicker?'none':'block';
+  $('lockProto').style.display=(location.protocol==='file:')?'block':'none';
+  $('lockMask').classList.add('show');
+}
+function closeLock(){$('lockMask').classList.remove('show');}
+
+/* ======================= 数据读写（真实文件） ======================= */
+async function readDataFile(){
+  try{
+    var fh=await dirHandle.getFileHandle('data.json');
+    var f=await fh.getFile();
+    var txt=await f.text();
+    if(txt.trim())return JSON.parse(txt);
+  }catch(e){}
+  return null;
+}
+async function writeDataNow(){
+  try{
+    var txt=JSON.stringify({version:2,updatedAt:new Date().toISOString(),meta:meta,projects:projects,tasks:tasks,reviews:reviews,knows:knows},null,1);
+    var fh=await dirHandle.getFileHandle('data.json',{create:true});
+    var w=await fh.createWritable();
+    await w.write(new Blob([txt],{type:'application/json'}));
+    await w.close();
+    maybeAutoBackup(txt);
+  }catch(e){toast('写入 data.json 失败：'+(e.message||e.name));}
+}
+/* 自动滚动备份：间隔≥10 分钟写一份快照到 backups/，保留最近 10 份 */
+async function maybeAutoBackup(txt){
+  var now=Date.now();
+  if(now-lastBackupTs<10*60*1000)return;
+  try{
+    var dh=await dirHandle.getDirectoryHandle('backups',{create:true});
+    var ts=new Date();
+    var fname='data_'+ts.getFullYear()+p2(ts.getMonth()+1)+p2(ts.getDate())+'_'+p2(ts.getHours())+p2(ts.getMinutes())+p2(ts.getSeconds())+'.json';
+    var fh=await dh.getFileHandle(fname,{create:true});
+    var w=await fh.createWritable();
+    await w.write(new Blob([txt],{type:'application/json'}));
+    await w.close();
+    lastBackupTs=now;
+    var names=[];
+    for await (var en of dh.keys()){if(en.indexOf('data_')===0)names.push(en);}
+    names.sort().reverse();
+    for(var i=10;i<names.length;i++){try{await dh.removeEntry(names[i]);}catch(e){}}
+  }catch(e){}
+}
+function persist(){
+  if(!dirHandle)return; // 未连接目录时不落盘
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(function(){
+    saveChain=saveChain.then(writeDataNow); // 串行写队列，避免并发写坏文件
+  },300);
+}
+async function initData(){
+  var d=await readDataFile();
+  if(d){
+    projects=d.projects||[];tasks=d.tasks||[];reviews=d.reviews||[];knows=d.knows||[];meta=d.meta||{sample:false};
+    tasks.forEach(function(t){t.atts=t.atts||[]; if(!t.solutions){t.solutions=t.solution?[{id:uid(),content:t.solution,createdAt:t.updatedAt||t.date}]:[];}else{t.solutions=t.solutions.map(function(s){return s.id?s:{id:uid(),content:s.content||s,createdAt:s.createdAt||t.updatedAt||t.date};});}});
+    reviews.forEach(function(r){r.atts=r.atts||[];});
+    knows.forEach(function(k){k.tags=k.tags||[];});
+    return;
+  }
+  /* 空目录：尝试迁移旧版（浏览器存储版）数据 */
+  var migrated=await migrateOldVersion();
+  if(!migrated)seedSample();
+  persist();
+}
+
+/* ======================= 旧版数据迁移 ======================= */
+function readOldFilesDB(){return new Promise(function(res){
+  try{
+    var r=indexedDB.open('wb_ops_files',1);
+    r.onsuccess=function(){
+      var db=r.result;
+      if(!db.objectStoreNames.contains('files')){res([]);return;}
+      try{
+        var rq=db.transaction('files','readonly').objectStore('files').getAll();
+        rq.onsuccess=function(){res(rq.result||[]);};
+        rq.onerror=function(){res([]);};
+      }catch(e){res([]);}
+    };
+    r.onerror=function(){res([]);};
+  }catch(e){res([]);}
+});}
+async function migrateOldVersion(){
+  var raw=null;
+  try{raw=localStorage.getItem(OLD_LS_KEY);}catch(e){}
+  if(!raw)return false;
+  try{
+    var d=JSON.parse(raw);
+    projects=d.projects||[];tasks=d.tasks||[];reviews=[];knows=[];
+    meta={sample:false};
+    var files=await readOldFilesDB();
+    for(var i=0;i<files.length;i++){
+      var f=files[i];
+      var t=taskById(f.taskId);if(!t)continue;
+      try{
+        var blob=await (await fetch(f.dataUrl)).blob();
+        var path=await writeAttFile(blob,f.taskId,f.slot,f.name);
+        t.atts=t.atts||[];
+        t.atts.push({id:uid(),slot:f.slot,name:f.name,size:f.size||blob.size,isImg:!!f.isImg,file:path,ts:f.ts||Date.now()});
+      }catch(e){}
+    }
+    tasks.forEach(function(t){t.atts=t.atts||[]; if(!t.solutions){t.solutions=t.solution?[{id:uid(),content:t.solution,createdAt:t.updatedAt||t.date}]:[];}});
+    toast('已将旧版浏览器数据迁移到本地工作目录（原数据保留未动）');
+    return true;
+  }catch(e){return false;}
+}
+
+/* ======================= 附件文件操作 ======================= */
+function safeName(n){return String(n).replace(/[\\\/:*?"<>|]/g,'_').slice(-80)||'file';}
+async function writeAttFile(blob,taskId,slot,origName){
+  var fname=taskId+'_'+slot+'_'+Date.now()+'_'+safeName(origName);
+  var dh=await dirHandle.getDirectoryHandle('attachments',{create:true});
+  var fh=await dh.getFileHandle(fname,{create:true});
+  var w=await fh.createWritable();
+  await w.write(blob);
+  await w.close();
+  return 'attachments/'+fname;
+}
+async function removeAttFile(path){
+  try{
+    var parts=path.split('/');
+    var dh=await dirHandle.getDirectoryHandle(parts[0]);
+    await dh.removeEntry(parts[1]);
+  }catch(e){}
+}
+async function getAttFile(att){
+  var parts=att.file.split('/');
+  var dh=await dirHandle.getDirectoryHandle(parts[0]);
+  var fh=await dh.getFileHandle(parts[1]);
+  return await fh.getFile();
+}
+async function getAttUrl(att){
+  if(urlCache[att.id])return urlCache[att.id];
+  var f=await getAttFile(att);
+  var u=URL.createObjectURL(f);
+  urlCache[att.id]=u;
+  return u;
+}
+function compressImage(file){
+  return new Promise(function(res){
+    var img=new Image();
+    var url=URL.createObjectURL(file);
+    img.onload=function(){
+      var MAX=800,w=img.width,h=img.height;
+      if(w<=MAX&&h<=MAX){URL.revokeObjectURL(url);res(null);return;}
+      if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}
+      var c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      c.toBlob(function(b){res(b);},'image/jpeg',0.85);
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);res(null);};
+    img.src=url;
+  });
+}
+async function handleFiles(fileList,slot){
+  if(!currentTaskId){toast('请先保存任务基本信息，再上传附件');return;}
+  if(!dirHandle){toast('请先连接工作目录');return;}
+  var files=Array.prototype.slice.call(fileList);
+  var t=taskById(currentTaskId);if(!t)return;
+  var imgCount=t.atts.filter(function(a){return a.slot===slot&&a.isImg;}).length;
+  for(var i=0;i<files.length;i++){
+    var f=files[i];
+    if(f.size>15*1048576){toast('「'+f.name+'」超过 15MB，跳过');continue;}
+    var isImg=/^image\//.test(f.type);
+    if(isImg){
+      imgCount++;
+      if(slot==='task'&&imgCount>9){toast('任务图片最多 9 张');imgCount--;continue;}
+    }
+    var blob=f;
+    if(isImg){var comp=await compressImage(f);if(comp)blob=comp;}
+    try{
+      var path=await writeAttFile(blob,t.id,slot,f.name);
+      t.atts.push({id:uid(),slot:slot,name:f.name,size:blob.size,isImg:isImg,file:path,ts:Date.now()});
+    }catch(e){toast('写入附件失败：'+(e.message||e.name));}
+  }
+  persist();renderAttachments();renderAll();toast('附件已保存到工作目录');
+}
+async function renderAttachments(){
+  if(!currentTaskId)return;
+  var t=taskById(currentTaskId);if(!t)return;
+  ['task','sol'].forEach(function(slot){
+    var list=t.atts.filter(function(a){return a.slot===slot;});
+    var box=$(slot==='task'?'attTaskList':'attSolList');
+    if(!list.length){box.innerHTML='';return;}
+    var h='';
+    list.forEach(function(a){
+      if(a.isImg){
+        h+='<div class="att-img" data-att="'+a.id+'"><img alt="'+esc(a.name)+'" data-src-att="'+a.id+'">'
+          +'<button class="del" onclick="delAtt(\''+a.id+'\',event)" aria-label="删除"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></button></div>';
+      }else{
+        h+='<div class="att-file">'
+          +'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="color:var(--primary);flex:none"><path d="M14 3v5h5M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'
+          +'<span class="fname" title="'+esc(a.name)+'">'+esc(a.name)+'</span>'
+          +'<span class="fsize">'+fmtSize(a.size)+'</span>'
+          +'<button class="btn btn-icon" onclick="downloadAtt(\''+a.id+'\')" aria-label="另存为"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+          +'<button class="btn btn-icon" onclick="delAtt(\''+a.id+'\',event)" aria-label="删除" style="color:var(--red)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m3 0l-1 13a2 2 0 01-2 2H9a2 2 0 01-2-2L6 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+          +'</div>';
+      }
+    });
+    box.innerHTML=h;
+    /* 异步填充图片缩略图 */
+    var imgs=box.querySelectorAll('img[data-src-att]');
+    imgs.forEach(function(img){
+      var aid=img.getAttribute('data-src-att');
+      var att=t.atts.find(function(a){return a.id===aid;});
+      if(att)getAttUrl(att).then(function(u){img.src=u;});
+    });
+    var cells=box.querySelectorAll('.att-img[data-att]');
+    cells.forEach(function(cell){
+      cell.onclick=function(ev){
+        if(ev.target.closest('.del'))return;
+        var aid=cell.getAttribute('data-att');
+        var att=t.atts.find(function(a){return a.id===aid;});
+        if(att)getAttUrl(att).then(function(u){$('imgPreviewEl').src=u;$('imgPreview').classList.add('show');});
+      };
+    });
+  });
+}
+function findAtt(id){
+  var groups=[tasks,reviews]; /* 任务附件 + 复盘附件 */
+  for(var g=0;g<groups.length;g++){
+    var arr=groups[g];
+    for(var i=0;i<arr.length;i++){var a=(arr[i].atts||[]);for(var j=0;j<a.length;j++)if(a[j].id===id)return{att:a[j],task:arr[i]};}
+  }
+  return null;
+}
+function delAtt(id,ev){
+  if(ev)ev.stopPropagation();
+  var f=findAtt(id);if(!f)return;
+  f.task.atts=f.task.atts.filter(function(a){return a.id!==id;});
+  if(urlCache[id]){URL.revokeObjectURL(urlCache[id]);delete urlCache[id];}
+  removeAttFile(f.att.file);
+  persist();renderAttachments();renderAll();toast('附件已删除');
+}
+function downloadAtt(id){
+  var f=findAtt(id);if(!f)return;
+  getAttUrl(f.att).then(function(u){
+    var a=document.createElement('a');a.href=u;a.download=f.att.name;
+    document.body.appendChild(a);a.click();a.remove();
+  });
+}
+
+/* ======================= 示例数据 ======================= */
+function seedSample(){
+  var t=todayStr(),y=addDays(t,-1),t2=addDays(t,2);
+  projects=[
+    {id:'sp-p1',name:'档案管理系统运维',status:'active',note:'业主：市档案馆 · 驻场核心项目',createdAt:y},
+    {id:'sp-p2',name:'OA门户二期',status:'active',note:'业主：办公室 · 每周三例会',createdAt:y},
+    {id:'sp-p3',name:'数据治理平台',status:'paused',note:'暂缓中，等待业主通知重启',createdAt:y}
+  ];
+  tasks=[
+    {id:'sp-t1',projectId:'sp-p1',title:'数据库连接池告警排查',desc:'监控连续两天告警连接数超阈值，需排查应用连接池配置。',date:y,priority:'P0',status:'doing',source:'业主提出',solution:'初步定位为连接未释放，已调整连接池上限并重启服务，持续观察中。',solutions:[{id:'sp-s1',content:'初步定位为连接未释放，已调整连接池上限并重启服务，持续观察中。',createdAt:y+' 14:30'},{id:'sp-s2',content:'今日复查：连接池水位恢复正常，告警已消除。已通知业主确认，暂保持观察。',createdAt:t+' 10:15'}],atts:[],createdAt:y,updatedAt:t},
+    {id:'sp-t2',projectId:'sp-p1',title:'报表导出超慢问题定位',desc:'业主反馈大数据量报表导出超过 5 分钟。',date:t,priority:'P1',status:'todo',source:'业主提出',solution:'',solutions:[],atts:[],createdAt:t,updatedAt:t},
+    {id:'sp-t3',projectId:'sp-p2',title:'业主例会材料准备',desc:'整理本周运维情况、遗留问题清单。',date:t,priority:'P2',status:'todo',source:'内部巡检',solution:'',solutions:[],atts:[],createdAt:t,updatedAt:t},
+    {id:'sp-t4',projectId:'sp-p1',title:'用户无法登录问题处理',desc:'多个账号登录提示凭据错误。',date:y,priority:'P0',status:'done',source:'业主提出',solution:'重置 LDAP 同步定时任务并补齐增量数据，当日恢复正常。',solutions:[{id:'sp-s3',content:'重置 LDAP 同步定时任务并补齐增量数据，当日恢复正常。',createdAt:y+' 16:00'}],atts:[],createdAt:y,updatedAt:y},
+    {id:'sp-t5',projectId:'sp-p2',title:'阶段性巡检报告提交',desc:'按合同要求提交月度巡检报告。',date:t2,priority:'P2',status:'todo',source:'内部巡检',solution:'',solutions:[],atts:[],createdAt:t,updatedAt:t}
+  ];
+  reviews=[
+    {id:'sp-r1',date:y,
+     summary:'【今日任务总览】共 2 项：完成 1、进行中 1、待处理 0\n1. [已完成] 用户无法登录问题处理（档案管理系统运维）\n   方案：重置 LDAP 同步定时任务并补齐增量数据，当日恢复正常。\n2. [进行中] 数据库连接池告警排查（档案管理系统运维）',
+     issues:'连接池 maxWait 与应用超时的关系还没完全弄清，需要结合源码确认；已记录待验证。',
+     learned:'LDAP 增量同步失败时，优先检查同步日志的时间戳，而不是直接全量重建。',
+     feelings:'今天处理 LDAP 同步问题花了比预期更长的时间，但最终定位到根因后很有成就感。连接池告警还在排查中，明天需要集中精力跟进。驻场沟通效率还不错，业主配合度高。',
+     atts:[],createdAt:y,updatedAt:y}
+  ];
+  knows=[
+    {id:'sp-k1',content:'LDAP 增量同步失败时，优先检查同步日志的时间戳，而不是直接全量重建。',tags:['LDAP','故障处理'],date:y,createdAt:y,updatedAt:y},
+    {id:'sp-k2',content:'连接池 maxWait 需小于应用侧调用超时，否则会线程堆积拖垮服务。',tags:['数据库'],date:y,createdAt:y,updatedAt:y}
+  ];
+  meta={sample:true};
+}
+function clearSample(){
+  askConfirm('清空示例数据','将删除全部示例项目与示例任务，开始录入你的真实工作。确定？',async function(){
+    projects=projects.filter(function(p){return p.id.indexOf('sp-')!==0;});
+    var delTasks=tasks.filter(function(t){return t.id.indexOf('sp-')===0;});
+    tasks=tasks.filter(function(t){return t.id.indexOf('sp-')!==0;});
+    var delRevs=reviews.filter(function(r){return r.id.indexOf('sp-')===0;});
+    reviews=reviews.filter(function(r){return r.id.indexOf('sp-')!==0;});
+    knows=knows.filter(function(k){return k.id.indexOf('sp-')!==0;});
+    meta.sample=false;
+    for(var i=0;i<delTasks.length;i++){
+      var ats=delTasks[i].atts||[];
+      for(var j=0;j<ats.length;j++)await removeAttFile(ats[j].file);
+    }
+    for(var k=0;k<delRevs.length;k++){
+      var rats=delRevs[k].atts||[];
+      for(var m=0;m<rats.length;m++)await removeAttFile(rats[m].file);
+    }
+    persist();renderAll();toast('示例数据已清空，开始记录真实工作吧');
+  });
+}
+
+/* ======================= 项目 ======================= */
+function projById(id){for(var i=0;i<projects.length;i++)if(projects[i].id===id)return projects[i];return null;}
+function projTagHtml(p){
+  if(!p)return '<span class="proj-tag paused"><span class="dot"></span>未知项目</span>';
+  var cls=p.status==='active'?'':(p.status==='finished'?'finished':'paused');
+  return '<span class="proj-tag '+cls+'"><span class="dot"></span>'+esc(p.name)+'</span>';
+}
+function renderProjects(){
+  $('projCnt').textContent='共 '+projects.length+' 个';
+  var h='';
+  projects.forEach(function(p){
+    var mine=tasks.filter(function(t){return t.projectId===p.id;});
+    var done=mine.filter(function(t){return t.status==='done';}).length;
+    var doing=mine.length-done;
+    h+='<div class="proj-card">'
+      +'<div class="pc-name">'+esc(p.name)+'</div>'
+      +'<div><span class="badge '+(p.status==='active'?'st-doing':(p.status==='finished'?'st-done':'st-todo'))+'">'+PROJ_S[p.status]+'</span></div>'
+      +(p.note?'<div class="pc-note">'+esc(p.note)+'</div>':'')
+      +'<div class="proj-stats">'
+      +'<span class="stat-chip">任务 <b>'+mine.length+'</b></span>'
+      +'<span class="stat-chip ok">已完成 <b>'+done+'</b></span>'
+      +'<span class="stat-chip">未完成 <b>'+doing+'</b></span>'
+      +'</div>'
+      +'<div class="pc-actions">'
+      +'<button class="btn btn-sm" onclick="openProjectModal(\''+p.id+'\')">编辑</button>'
+      +'</div></div>';
+  });
+  if(!projects.length)h='<div class="empty">还没有项目，点击右上角「新建项目」开始。</div>';
+  $('projGrid').innerHTML=h;
+}
+function openProjectModal(id){
+  currentProjId=id||null;
+  var p=id?projById(id):null;
+  $('pmTitle').textContent=p?'编辑项目':'新建项目';
+  $('pmName').value=p?p.name:'';
+  $('pmStatus').value=p?p.status:'active';
+  $('pmNote').value=p?p.note:'';
+  $('pmDelete').style.display=p?'':'none';
+  $('projMask').classList.add('show');
+}
+function closeProjModal(){$('projMask').classList.remove('show');}
+function saveProject(){
+  var name=$('pmName').value.trim();
+  if(!name){toast('请填写项目名称');return;}
+  if(currentProjId){
+    var p=projById(currentProjId);
+    p.name=name;p.status=$('pmStatus').value;p.note=$('pmNote').value.trim();
+  }else{
+    projects.push({id:uid(),name:name,status:$('pmStatus').value,note:$('pmNote').value.trim(),createdAt:todayStr()});
+  }
+  persist();closeProjModal();renderAll();toast('项目已保存');
+}
+function deleteProjectFromModal(){
+  var p=projById(currentProjId);if(!p)return;
+  var mine=tasks.filter(function(t){return t.projectId===p.id;});
+  var msg='确定删除项目「'+p.name+'」？';
+  if(mine.length)msg+='该项目下有 '+mine.length+' 个任务，将一并删除（含附件文件）。';
+  askConfirm('删除项目',msg,async function(){
+    projects=projects.filter(function(x){return x.id!==p.id;});
+    tasks=tasks.filter(function(t){return t.projectId!==p.id;});
+    persist();
+    for(var i=0;i<mine.length;i++){
+      var ats=mine[i].atts||[];
+      for(var j=0;j<ats.length;j++)await removeAttFile(ats[j].file);
+    }
+    closeProjModal();renderAll();toast('项目已删除');
+  });
+}
+
+/* ======================= 任务 ======================= */
+function taskById(id){for(var i=0;i<tasks.length;i++)if(tasks[i].id===id)return tasks[i];return null;}
+function attCntHtml(t){return (t.atts&&t.atts.length)?'<span style="display:inline-flex;align-items:center;gap:3px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M21.4 11.1l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l8.5-8.5a3.7 3.7 0 015.2 5.2l-8.5 8.5a1.8 1.8 0 01-2.6-2.6l7.8-7.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'+t.atts.length+' 附件</span>':'';}
+function taskRowHtml(t,overdueDays){
+  var p=projById(t.projectId);
+  var ov=overdueDays>0;
+  return '<div class="task-row'+(ov?' overdue':'')+(t.status==='done'?' done-row':'')+'">'
+    +'<div class="tr-main">'
+    +'<div class="tr-title">'+esc(t.title)+'</div>'
+    +'<div class="tr-meta">'
+    +projTagHtml(p)
+    +'<span class="badge '+t.priority.toLowerCase()+'">'+P_NAME[t.priority]+'</span>'
+    +'<span class="badge st-'+t.status+'">'+S_NAME[t.status]+'</span>'
+    +(ov?'<span style="color:var(--red);font-weight:700">已逾期 '+overdueDays+' 天</span>':'')
+    +'<span>'+t.date+(t.source?' · '+esc(t.source):'')+'</span>'
+    +attCntHtml(t)
+    +'</div>'
+    +(t.solution?'<div class="tr-solution"><b>方案'+(t.solutions&&t.solutions.length>1?('（'+t.solutions.length+' 条）'):'')+'：</b>'+esc(t.solution.length>120?t.solution.slice(0,120)+'…':t.solution)+'</div>':'')
+    +'</div>'
+    +'<div class="tr-actions">'
+    +(ov?'<button class="btn btn-sm btn-primary" onclick="postpone(\''+t.id+'\')">顺延到今天</button>':'')
+    +'<button class="btn btn-sm" onclick="openTaskModal(\''+t.id+'\')">处理</button>'
+    +(t.status!=='done'?'<button class="btn btn-sm" onclick="quickDone(\''+t.id+'\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>完成</button>':'')
+    +'</div></div>';
+}
+function renderToday(){
+  var t=todayStr(),h='';
+  var overdue=[],today=[],soon=[],doneRecent=[];
+  tasks.forEach(function(x){
+    if(x.status==='done'){if(x.date<=t&&x.updatedAt>=addDays(t,-1))doneRecent.push(x);return;}
+    if(x.date<t)overdue.push(x);
+    else if(x.date===t)today.push(x);
+    else if(x.date<=addDays(t,2))soon.push(x);
+  });
+  var total=overdue.length+today.length+soon.length;
+  $('todayHint').textContent=total?('待处理 '+total+' 项 · '+t):t;
+  if(overdue.length){
+    h+='<div class="today-section"><h3 style="color:var(--red)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>逾期未完成（昨天没做完的自动顺延到这里）<span class="cnt">'+overdue.length+'</span></h3>';
+    overdue.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(x){h+=taskRowHtml(x,dayDiff(t,x.date));});
+    h+='</div>';
+  }
+  h+='<div class="today-section"><h3><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#2f6fed" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#2f6fed" stroke-width="2" stroke-linecap="round"/></svg>今天该做的<span class="cnt">'+today.length+'</span></h3>';
+  if(today.length)today.forEach(function(x){h+=taskRowHtml(x,0);});
+  else h+='<div class="empty">今天暂无待办，休息一下或提前处理即将到期的任务。</div>';
+  h+='</div>';
+  if(soon.length){
+    h+='<div class="today-section"><h3 style="color:var(--orange)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>快到期的（2 天内）<span class="cnt">'+soon.length+'</span></h3>';
+    soon.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(x){h+=taskRowHtml(x,0);});
+    h+='</div>';
+  }
+  if(doneRecent.length){
+    h+='<div class="today-section"><h3 style="color:var(--green)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/></svg>已完成（近期）<span class="cnt">'+doneRecent.length+'</span></h3>';
+    doneRecent.forEach(function(x){h+=taskRowHtml(x,0);});
+    h+='</div>';
+  }
+  $('todayArea').innerHTML=h;
+  $('sampleCard').style.display=meta.sample?'':'none';
+}
+function quickAdd(){
+  if(!requireDir())return;
+  var title=$('qaTitle').value.trim();
+  if(!title){toast('请填写任务标题');return;}
+  var d=$('qaDate').value||todayStr();
+  tasks.push({id:uid(),projectId:$('qaProject').value||'nop',title:title,desc:'',date:d,
+    priority:$('qaPriority').value,status:'todo',source:'业主提出',solution:'',solutions:[],atts:[],createdAt:todayStr(),updatedAt:todayStr()});
+  persist();$('qaTitle').value='';renderAll();toast('任务已添加');
+}
+function requireDir(){
+  if(!dirHandle){toast('请先连接工作目录');openLock(false);return false;}
+  return true;
+}
+function postpone(id){
+  var t=taskById(id);if(!t)return;
+  t.date=todayStr();t.updatedAt=todayStr();persist();renderAll();toast('已顺延到今天');
+}
+function quickDone(id){
+  var t=taskById(id);if(!t)return;
+  t.status='done';t.updatedAt=todayStr();persist();renderAll();toast('已完成：'+t.title);
+}
+function renderTasks(){
+  $('fProject').innerHTML='<option value="">全部项目</option>'+projects.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>';}).join('');
+  var kw=$('fSearch').value.trim().toLowerCase(),fp=$('fProject').value,fs=$('fStatus').value,fd=$('fDate').value;
+  var t=todayStr(),ws=weekStart(t);
+  var list=tasks.filter(function(x){
+    if(fp&&x.projectId!==fp)return false;
+    if(fs&&x.status!==fs)return false;
+    if(fd==='today'&&x.date!==t)return false;
+    if(fd==='week'&&(x.date<ws||x.date>addDays(ws,6)))return false;
+    if(fd==='overdue'&&(x.status==='done'||x.date>=t))return false;
+    if(kw){var hay=(x.title+' '+x.desc+' '+(x.solutions||[]).map(function(s){return s.content;}).join(' ')+' '+x.solution+' '+(x.atts||[]).map(function(a){return a.name;}).join(' ')+' '+projName(x.projectId)).toLowerCase();if(hay.indexOf(kw)<0)return false;}
+    return true;
+  });
+  list.sort(function(a,b){if(a.date!==b.date)return a.date<b.date?1:-1;return a.createdAt<b.createdAt?1:-1;});
+  $('taskCnt').textContent='共 '+list.length+' 项';
+  var h='';
+  list.forEach(function(x){
+    var od=x.status!=='done'&&x.date<t?dayDiff(t,x.date):0;
+    h+='<div class="task-full'+(x.status==='done'?' done':'')+'">'
+      +'<div class="tf-top">'
+      +'<span class="tf-title">'+esc(x.title)+'</span>'
+      +'<span class="badge '+x.priority.toLowerCase()+'">'+P_NAME[x.priority]+'</span>'
+      +'<span class="badge st-'+x.status+'">'+S_NAME[x.status]+'</span>'
+      +'</div>'
+      +(x.desc?'<div class="tf-desc">'+esc(x.desc)+'</div>':'')
+      +(x.solution?'<div class="tf-desc" style="color:var(--green)"><b>方案'+(x.solutions&&x.solutions.length>1?('（'+x.solutions.length+' 条）'):'')+'：</b>'+esc(x.solution)+'</div>':'')
+      +'<div class="tf-foot">'
+      +projTagHtml(projById(x.projectId))
+      +'<span>'+x.date+'</span>'
+      +(x.source?'<span>来源：'+esc(x.source)+'</span>':'')
+      +attCntHtml(x)
+      +(od?'<span style="color:var(--red);font-weight:700">逾期 '+od+' 天</span>':'')
+      +'<span style="flex:1"></span>'
+      +'<button class="btn btn-sm" onclick="openTaskModal(\''+x.id+'\')">详情 / 处理</button>'
+      +'</div></div>';
+  });
+  if(!list.length)h='<div class="empty"><svg width="36" height="36" viewBox="0 0 24 24" fill="none"><path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><br>没有符合条件的任务</div>';
+  $('taskList').innerHTML=h;
+}
+function projName(id){var p=projById(id);return p?p.name:'（已删除项目）';}
+
+/* ======================= 任务详情弹窗 ======================= */
+function solText(t){
+  if(t.solutions&&t.solutions.length)return t.solutions[t.solutions.length-1].content;
+  return t.solution||'';
+}
+/* 从方案记录的时间字符串中解析出 YYYY-MM-DD（兼容 2026-08-27 16:00 / 2026/08/27 17:30 / 2026-08-27） */
+function solDateOf(s){
+  var m=String((s&&s.createdAt)||'').replace(/\//g,'-').match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m?(m[1]+'-'+p2(+m[2])+'-'+p2(+m[3])):'';
+}
+/* 任务是否属于某周期：周期内创建，或周期内新增过方案记录（跨周/跨月续处理的任务也能纳入） */
+function taskInPeriod(t,ws,we){
+  if(t.date>=ws&&t.date<=we)return true;
+  var ss=t.solutions||[];
+  for(var i=0;i<ss.length;i++){
+    var d=solDateOf(ss[i]);
+    if(d&&d>=ws&&d<=we)return true;
+  }
+  return false;
+}
+/* 取任务在周期内的方案记录 */
+function solsInRange(t,ws,we){
+  return (t.solutions||[]).filter(function(s){var d=solDateOf(s);return d&&d>=ws&&d<=we;});
+}
+/* 周报/月报共用的方案输出：优先输出周期内的方案记录（带日期）；否则回退旧版单条方案 */
+function appendSolutionLines(t,lines,ws,we){
+  var ss=solsInRange(t,ws,we);
+  if(!ss.length){
+    if(t.solution&&t.date>=ws&&t.date<=we){
+      var s0=t.solution.replace(/\s+/g,' ').trim();
+      if(s0.length>90)s0=s0.slice(0,90)+'…';
+      lines.push('   方案：'+s0);
+    }
+    return;
+  }
+  ss.forEach(function(s){
+    var x=(s.content||'').replace(/\s+/g,' ').trim();
+    if(x.length>90)x=x.slice(0,90)+'…';
+    lines.push('   方案['+solDateOf(s)+']：'+x);
+  });
+}
+function renderSolutions(){
+  if(!currentTaskId){$('solHistory').innerHTML='';$('solCnt').textContent='';return;}
+  var t=taskById(currentTaskId);if(!t){$('solHistory').innerHTML='';$('solCnt').textContent='';return;}
+  var arr=t.solutions||[];
+  $('solCnt').textContent=arr.length?('共 '+arr.length+' 条记录'):'';
+  if(!arr.length){$('solHistory').innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px 0">暂无方案记录，在下方填写后点「添加方案记录」</div>';return;}
+  var h='';
+  arr.slice().reverse().forEach(function(s,i){
+    h+='<div class="sol-item">'
+      +'<div class="sol-head"><span>第 '+(arr.length-i)+' 条 · '+esc(s.createdAt)+'</span>'
+      +'<button class="sol-del" onclick="delSolution(\''+s.id+'\')">删除</button></div>'
+      +'<div class="sol-body">'+esc(s.content)+'</div></div>';
+  });
+  $('solHistory').innerHTML=h;
+}
+function delSolution(sid){
+  var t=taskById(currentTaskId);if(!t||!t.solutions)return;
+  t.solutions=t.solutions.filter(function(s){return s.id!==sid;});
+  t.solution=t.solutions.length?t.solutions[t.solutions.length-1].content:'';
+  t.updatedAt=todayStr();
+  persist();renderSolutions();renderAll();toast('已删除该条方案记录');
+}
+function openCreateModal(){
+  if(!requireDir())return;
+  currentTaskId=null;
+  $('tmTitle').textContent='新建任务';
+  fillProjectSelect('tmProject');
+  $('tmName').value='';$('tmDesc').value='';$('tmDate').value=todayStr();
+  $('tmPriority').value='P1';$('tmStatus').value='todo';$('tmSource').value='业主提出';
+  $('tmSolution').value='';$('tmDoneBtn').style.display='none';
+  $('solHistory').innerHTML='';$('solCnt').textContent='';
+  $('attTaskList').innerHTML='';$('attSolList').innerHTML='';
+  $('taskMask').classList.add('show');
+}
+function openTaskModal(id){
+  var t=taskById(id);if(!t)return;
+  currentTaskId=id;
+  $('tmTitle').textContent='任务详情';
+  fillProjectSelect('tmProject');
+  $('tmName').value=t.title;$('tmProject').value=t.projectId;$('tmDate').value=t.date;
+  $('tmPriority').value=t.priority;$('tmStatus').value=t.status;$('tmSource').value=t.source||'业主提出';
+  $('tmDesc').value=t.desc||'';$('tmSolution').value='';
+  $('tmDoneBtn').style.display='';
+  $('tmDoneBtn').textContent=t.status==='done'?'重新打开':'标记为已完成';
+  renderAttachments();renderSolutions();
+  $('taskMask').classList.add('show');
+}
+function closeTaskModal(){$('taskMask').classList.remove('show');currentTaskId=null;}
+function fillProjectSelect(sel){
+  var s=$(sel);
+  s.innerHTML=projects.length?projects.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>';}).join(''):'<option value="nop">（请先在「项目」页创建项目）</option>';
+}
+function saveTaskBasic(){
+  var name=$('tmName').value.trim();
+  if(!name){toast('请填写任务标题');return;}
+  var now=todayStr();
+  if(currentTaskId){
+    var t=taskById(currentTaskId);
+    t.title=name;t.projectId=$('tmProject').value;t.date=$('tmDate').value||now;
+    t.priority=$('tmPriority').value;t.status=$('tmStatus').value;t.source=$('tmSource').value;
+    t.desc=$('tmDesc').value.trim();t.updatedAt=now;
+    toast('任务已保存');
+  }else{
+    tasks.push({id:uid(),projectId:$('tmProject').value,title:name,desc:$('tmDesc').value.trim(),
+      date:$('tmDate').value||now,priority:$('tmPriority').value,status:$('tmStatus').value,
+      source:$('tmSource').value,solution:'',solutions:[],atts:[],createdAt:now,updatedAt:now});
+    currentTaskId=tasks[tasks.length-1].id;
+    $('tmTitle').textContent='任务详情';$('tmDoneBtn').style.display='';
+    toast('任务已创建，可继续上传附件');
+  }
+  persist();renderAll();renderAttachments();
+}
+function saveSolution(){
+  if(!currentTaskId){toast('请先保存任务基本信息');return;}
+  var t=taskById(currentTaskId);
+  var txt=$('tmSolution').value.trim();
+  if(!txt){toast('请输入方案内容');return;}
+  if(!t.solutions)t.solutions=t.solution?[{id:uid(),content:t.solution,createdAt:t.updatedAt||t.date}]:[];
+  t.solutions.push({id:uid(),content:txt,createdAt:new Date().toLocaleString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})});
+  t.solution=txt;t.updatedAt=todayStr();
+  $('tmSolution').value='';
+  persist();renderSolutions();renderAll();toast('方案记录已添加（第 '+t.solutions.length+' 条）');
+}
+function toggleDone(){
+  if(!currentTaskId)return;
+  var t=taskById(currentTaskId);
+  t.status=t.status==='done'?'doing':'done';t.updatedAt=todayStr();
+  persist();renderAll();
+  $('tmStatus').value=t.status;
+  $('tmDoneBtn').textContent=t.status==='done'?'重新打开':'标记为已完成';
+  toast(t.status==='done'?'已标记完成':'已重新打开');
+}
+function deleteTaskFromModal(){
+  if(!currentTaskId)return;
+  var t=taskById(currentTaskId);
+  askConfirm('删除任务','确定删除任务「'+t.title+'」？其附件文件将一并删除。',async function(){
+    var ats=t.atts||[];
+    tasks=tasks.filter(function(x){return x.id!==currentTaskId;});
+    persist();
+    for(var i=0;i<ats.length;i++)await removeAttFile(ats[i].file);
+    closeTaskModal();renderAll();toast('任务已删除');
+  });
+}
+
+/* ======================= 每日复盘 ======================= */
+function reviewById(id){for(var i=0;i<reviews.length;i++)if(reviews[i].id===id)return reviews[i];return null;}
+function reviewByDate(d){for(var i=0;i<reviews.length;i++)if(reviews[i].date===d)return reviews[i];return null;}
+function shiftReviewDay(n){reviewBase=addDays(reviewBase,n);renderReview();}
+function goReviewToday(){reviewBase=todayStr();renderReview();}
+function openReviewByDate(d){reviewBase=d;renderReview();window.scrollTo({top:0,behavior:'smooth'});}
+function revCut(s,n){s=String(s||'').replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n)+'…':s;}
+function renderReview(){
+  $('revDate').value=reviewBase;
+  var r=reviewByDate(reviewBase);
+  $('revState').textContent=r?('已记录 · '+reviewBase):('未记录 · '+reviewBase);
+  $('revSummary').value=r?(r.summary||''):'';
+  $('revIssues').value=r?(r.issues||''):'';
+  $('revLearned').value=r?(r.learned||''):'';
+  $('revFeelings').value=r?(r.feelings||''):'';
+  $('revDeleteBtn').style.display=r?'':'none';
+  renderRevAtts();
+  renderReviewList();
+}
+function genReviewSummary(){
+  var d=$('revDate').value||todayStr();
+  /* 当日创建，或当日新增过方案记录（跨天续处理的任务也纳入） */
+  var mine=tasks.filter(function(t){return taskInPeriod(t,d,d);});
+  if(!mine.length){toast('该日期没有任务记录，可直接手动填写');return;}
+  var nDone=mine.filter(function(t){return t.status==='done';}).length;
+  var nDoing=mine.filter(function(t){return t.status==='doing';}).length;
+  var nTodo=mine.length-nDone-nDoing;
+  var lines=['【今日任务总览】共 '+mine.length+' 项：完成 '+nDone+'、进行中 '+nDoing+'、待处理 '+nTodo];
+  mine.sort(function(a,b){return a.createdAt<b.createdAt?-1:1;}).forEach(function(t,i){
+    var mark=t.date!==d?'（'+t.date+' 创建，当日续处理）':'';
+    lines.push((i+1)+'. ['+S_NAME[t.status]+'] '+t.title+'（'+projName(t.projectId)+'）'+mark);
+    appendSolutionLines(t,lines,d,d);
+  });
+  var cur=$('revSummary').value.trim();
+  $('revSummary').value=cur?cur+'\n\n'+lines.join('\n'):lines.join('\n');
+  toast('已从当日任务生成总结');
+}
+function saveReview(){
+  if(!requireDir())return;
+  var d=$('revDate').value||todayStr();
+  var sum=$('revSummary').value.trim(),iss=$('revIssues').value.trim(),lea=$('revLearned').value.trim(),fee=$('revFeelings').value.trim();
+  if(!sum&&!iss&&!lea&&!fee){toast('复盘内容为空');return;}
+  var r=reviewByDate(d);
+  if(r){
+    r.summary=sum;r.issues=iss;r.learned=lea;r.feelings=fee;r.updatedAt=todayStr();
+  }else{
+    r={id:uid(),date:d,summary:sum,issues:iss,learned:lea,feelings:fee,atts:[],createdAt:todayStr(),updatedAt:todayStr()};
+    reviews.push(r);
+  }
+  reviewBase=d;
+  persist();renderReview();toast('复盘已保存到工作目录');
+}
+function deleteReview(){
+  var r=reviewByDate($('revDate').value||todayStr());if(!r)return;
+  askConfirm('删除复盘','确定删除 '+r.date+' 的复盘记录？其附件文件将一并删除。',async function(){
+    reviews=reviews.filter(function(x){return x.id!==r.id;});
+    var ats=r.atts||[];
+    for(var i=0;i<ats.length;i++){
+      if(urlCache[ats[i].id]){URL.revokeObjectURL(urlCache[ats[i].id]);delete urlCache[ats[i].id];}
+      await removeAttFile(ats[i].file);
+    }
+    persist();renderReview();toast('复盘已删除');
+  });
+}
+function renderReviewList(){
+  $('revCnt').textContent='共 '+reviews.length+' 篇';
+  var h='';
+  reviews.slice().sort(function(a,b){return a.date<b.date?1:-1;}).forEach(function(r){
+    h+='<div class="task-full"><div class="tf-top">'
+      +'<span class="tf-title">'+r.date+' · 每日复盘</span>'
+      +((r.atts&&r.atts.length)?'<span class="badge st-doing">'+r.atts.length+' 附件</span>':'')
+      +'<span style="flex:1"></span>'
+      +'<button class="btn btn-sm" onclick="openReviewByDate(\''+r.date+'\')">查看 / 编辑</button>'
+      +'</div>'
+      +(r.summary?'<div class="tf-desc">'+esc(revCut(r.summary,140))+'</div>':'')
+      +(r.issues?'<div class="tf-desc" style="color:var(--orange)"><b>疑难点：</b>'+esc(revCut(r.issues,100))+'</div>':'')
+      +(r.learned?'<div class="tf-desc" style="color:var(--green)"><b>知识点：</b>'+esc(revCut(r.learned,100))+'</div>':'')
+      +(r.feelings?'<div class="tf-desc" style="color:var(--purple)"><b>每日总结：</b>'+esc(revCut(r.feelings,100))+'</div>':'')
+      +'</div>';
+  });
+  if(!reviews.length)h='<div class="empty">还没有复盘记录。建议每天下班前花 5 分钟写一篇：总结任务、沉淀疑难与知识点。</div>';
+  $('revList').innerHTML=h;
+}
+function copyReviewText(){
+  var d=$('revDate').value||todayStr();
+  var sum=$('revSummary').value.trim(),iss=$('revIssues').value.trim(),lea=$('revLearned').value.trim(),fee=$('revFeelings').value.trim();
+  if(!sum&&!iss&&!lea&&!fee){toast('复盘内容为空，请先填写或保存');return;}
+  var lines=['【每日复盘】'+d,''];
+  if(sum){lines.push('一、今日工作总结');lines.push(sum);lines.push('');}
+  if(iss){lines.push('二、今日疑难点');lines.push(iss);lines.push('');}
+  if(lea){lines.push('三、学习到的知识点');lines.push(lea);lines.push('');}
+  if(fee){lines.push('四、每日总结');lines.push(fee);}
+  copyText(lines.join('\n'));
+}
+function copyText(txt){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){toast('已复制，可粘贴到微信 / 邮件');},function(){fallbackCopy(txt);});
+  }else{fallbackCopy(txt);}
+}
+/* ---- 复盘附件（真实文件，存 attachments/） ---- */
+async function handleRevFiles(fileList){
+  if(!requireDir())return;
+  var r=reviewByDate($('revDate').value||todayStr());
+  if(!r){toast('请先点击「保存复盘」创建本日复盘，再上传附件');return;}
+  r.atts=r.atts||[];
+  var files=Array.prototype.slice.call(fileList);
+  var imgCount=r.atts.filter(function(a){return a.isImg;}).length;
+  for(var i=0;i<files.length;i++){
+    var f=files[i];
+    if(f.size>15*1048576){toast('「'+f.name+'」超过 15MB，跳过');continue;}
+    var isImg=/^image\//.test(f.type);
+    if(isImg){
+      imgCount++;
+      if(imgCount>9){toast('复盘图片最多 9 张');imgCount--;continue;}
+    }
+    var blob=f;
+    if(isImg){var comp=await compressImage(f);if(comp)blob=comp;}
+    try{
+      var path=await writeAttFile(blob,r.id,'rev',f.name);
+      r.atts.push({id:uid(),slot:'rev',name:f.name,size:blob.size,isImg:isImg,file:path,ts:Date.now()});
+    }catch(e){toast('写入附件失败：'+(e.message||e.name));}
+  }
+  persist();renderRevAtts();renderReviewList();toast('附件已保存到工作目录');
+}
+function renderRevAtts(){
+  var box=$('attRevList');if(!box)return;
+  var r=reviewByDate($('revDate').value||reviewBase);
+  var list=r?(r.atts||[]):[];
+  if(!list.length){box.innerHTML='';return;}
+  var h='';
+  list.forEach(function(a){
+    if(a.isImg){
+      h+='<div class="att-img" data-ratt="'+a.id+'"><img alt="'+esc(a.name)+'" data-src-ratt="'+a.id+'">'
+        +'<button class="del" onclick="delAtt(\''+a.id+'\',event)" aria-label="删除"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></button></div>';
+    }else{
+      h+='<div class="att-file">'
+        +'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="color:var(--primary);flex:none"><path d="M14 3v5h5M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'
+        +'<span class="fname" title="'+esc(a.name)+'">'+esc(a.name)+'</span>'
+        +'<span class="fsize">'+fmtSize(a.size)+'</span>'
+        +'<button class="btn btn-icon" onclick="downloadAtt(\''+a.id+'\')" aria-label="另存为"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+        +'<button class="btn btn-icon" onclick="delAtt(\''+a.id+'\',event)" aria-label="删除" style="color:var(--red)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m3 0l-1 13a2 2 0 01-2 2H9a2 2 0 01-2-2L6 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
+        +'</div>';
+    }
+  });
+  box.innerHTML=h;
+  var imgs=box.querySelectorAll('img[data-src-ratt]');
+  imgs.forEach(function(img){
+    var aid=img.getAttribute('data-src-ratt');
+    var att=list.find(function(x){return x.id===aid;});
+    if(att)getAttUrl(att).then(function(u){img.src=u;});
+  });
+  var cells=box.querySelectorAll('.att-img[data-ratt]');
+  cells.forEach(function(cell){
+    cell.onclick=function(ev){
+      if(ev.target.closest('.del'))return;
+      var aid=cell.getAttribute('data-ratt');
+      var att=list.find(function(x){return x.id===aid;});
+      if(att)getAttUrl(att).then(function(u){$('imgPreviewEl').src=u;$('imgPreview').classList.add('show');});
+    };
+  });
+}
+$('revFile').onchange=function(e){handleRevFiles(e.target.files);e.target.value='';};
+
+/* ======================= 知识库（打标签 + 检索） ======================= */
+function knowById(id){for(var i=0;i<knows.length;i++)if(knows[i].id===id)return knows[i];return null;}
+/* ---- 轻量 Markdown 渲染（零依赖，覆盖常见语法：标题/加粗/斜体/行内码/代码块/列表/引用/链接/分隔线） ---- */
+function mdInline(s){
+  s=s.replace(/`([^`]+)`/g,function(m,c){return '<code>'+c+'</code>';});
+  s=s.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  s=s.replace(/\*([^*\s][^*]*)\*/g,'<i>$1</i>');
+  s=s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return s;
+}
+function mdRender(src){
+  var lines=String(src||'').replace(/\r\n?/g,'\n').split('\n');
+  var out=[],inCode=false,codeBuf=[],listType='';
+  function escHtml(x){return String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function closeList(){if(listType){out.push('</'+listType+'>');listType='';}}
+  function closeCode(){out.push('<pre><code>'+escHtml(codeBuf.join('\n'))+'</code></pre>');codeBuf=[];inCode=false;}
+  for(var i=0;i<lines.length;i++){
+    var L=lines[i],t=L.trim(),m;
+    if(/^(```|~~~)/.test(t)){
+      if(inCode)closeCode();else{closeList();inCode=true;}
+      continue;
+    }
+    if(inCode){codeBuf.push(L);continue;}
+    if(!t){closeList();continue;}
+    if((m=t.match(/^(#{1,4})\s+(.*)$/))){closeList();var lv=Math.min(m[1].length+3,6);out.push('<h'+lv+'>'+mdInline(escHtml(m[2]))+'</h'+lv+'>');continue;}
+    if(/^(-{3,}|\*{3,}|_{3,})$/.test(t)){closeList();out.push('<hr>');continue;}
+    if((m=t.match(/^>\s?(.*)$/))){closeList();out.push('<blockquote>'+mdInline(escHtml(m[1]))+'</blockquote>');continue;}
+    if((m=t.match(/^[-*+]\s+(.*)$/))){if(listType!=='ul'){closeList();out.push('<ul>');listType='ul';}out.push('<li>'+mdInline(escHtml(m[1]))+'</li>');continue;}
+    if((m=t.match(/^\d+[.、)]\s+(.*)$/))){if(listType!=='ol'){closeList();out.push('<ol>');listType='ol';}out.push('<li>'+mdInline(escHtml(m[1]))+'</li>');continue;}
+    closeList();
+    out.push('<p>'+mdInline(escHtml(t))+'</p>');
+  }
+  if(inCode)closeCode();
+  closeList();
+  return out.join('');
+}
+function allKnowTags(){
+  var set={};
+  knows.forEach(function(k){(k.tags||[]).forEach(function(t){set[t]=1;});});
+  return Object.keys(set).sort(function(a,b){return a.localeCompare(b,'zh');});
+}
+function renderKnows(){
+  $('knowCnt').textContent='共 '+knows.length+' 条';
+  var tags=allKnowTags();
+  if(knowFilterTag&&tags.indexOf(knowFilterTag)<0)knowFilterTag='';
+  var chips='';
+  tags.forEach(function(t,i){
+    var n=knows.filter(function(k){return (k.tags||[]).indexOf(t)>=0;}).length;
+    chips+='<button class="tag-chip'+(knowFilterTag===t?' active':'')+'" onclick="toggleKnowTag('+i+')"># '+esc(t)+' ('+n+')</button>';
+  });
+  $('knowTags').innerHTML=chips;
+  var kw=($('knowSearch').value||'').trim().toLowerCase();
+  var list=knows.filter(function(k){
+    if(knowFilterTag&&(k.tags||[]).indexOf(knowFilterTag)<0)return false;
+    if(kw&&((k.content+' '+(k.tags||[]).join(' ')).toLowerCase().indexOf(kw)<0))return false;
+    return true;
+  });
+  list.sort(function(a,b){return a.date<b.date?1:(a.date>b.date?-1:(a.createdAt<b.createdAt?1:-1));});
+  var h='';
+  list.forEach(function(k){
+    var long=k.content.length>150;
+    h+='<div class="task-full"><div class="tf-top">'
+      +'<div class="know-md'+(long&&!knowOpen[k.id]?' collapse':'')+'">'+mdRender(k.content)+'</div></div>'
+      +'<div class="tf-foot">'
+      +'<span>'+k.date+'</span>'
+      +(k.tags||[]).map(function(t){return '<span class="ktag"># '+esc(t)+'</span>';}).join('')
+      +'<span style="flex:1"></span>'
+      +(long?'<button class="btn btn-sm" onclick="toggleKnowFull(\''+k.id+'\')">'+(knowOpen[k.id]?'收起':'展开全文')+'</button>':'')
+      +'<button class="btn btn-sm" onclick="openKnowModal(\''+k.id+'\')">编辑</button>'
+      +'<button class="btn btn-sm btn-danger" onclick="deleteKnow(\''+k.id+'\')">删除</button>'
+      +'</div></div>';
+  });
+  if(!list.length)h='<div class="empty">没有符合条件的知识点。可在「复盘」中点「按行收录到知识库」，或点右上角「新增知识点」。</div>';
+  $('knowList').innerHTML=h;
+}
+function toggleKnowTag(i){var tags=allKnowTags();var t=tags[i];if(!t)return;knowFilterTag=(knowFilterTag===t)?'':t;renderKnows();}
+function toggleKnowFull(id){if(knowOpen[id])delete knowOpen[id];else knowOpen[id]=1;renderKnows();}
+function openKnowModal(id){
+  if(!requireDir())return;
+  currentKnowId=id||null;
+  var k=id?knowById(id):null;
+  $('kmTitle').textContent=k?'编辑知识点':'新增知识点';
+  $('kmContent').value=k?k.content:'';
+  $('kmTags').value=k?(k.tags||[]).join('，'):'';
+  $('kmDate').value=k?k.date:todayStr();
+  $('knowMask').classList.add('show');
+}
+/* 导入 .md / .markdown / .txt 文件为知识点内容 */
+$('kmFile').onchange=function(e){importKnowFiles(e.target.files);e.target.value='';};
+function importKnowFiles(files){
+  if(!files||!files.length)return;
+  var f=files[0];
+  var name=String(f.name||'').toLowerCase();
+  if(!/\.(md|markdown|txt)$/.test(name)){toast('仅支持 .md / .markdown / .txt 文件');return;}
+  if(f.size>1024*1024){toast('文件超过 1MB，建议拆分后再导入');return;}
+  var reader=new FileReader();
+  reader.onload=function(){
+    var txt=String(reader.result||'').trim();
+    if(!txt){toast('文件内容为空');return;}
+    var fill=function(){
+      $('kmContent').value=txt;
+      toast('已导入「'+f.name+'」，可编辑标签后保存');
+    };
+    if($('kmContent').value.trim()){
+      askConfirm('导入 .md 文件','当前内容框已有文字，导入将覆盖。确定继续？',fill);
+    }else fill();
+  };
+  reader.onerror=function(){toast('读取文件失败');};
+  reader.readAsText(f,'utf-8');
+}
+function saveKnow(){
+  var c=$('kmContent').value.trim();
+  if(!c){toast('请填写知识点内容');return;}
+  var tags=$('kmTags').value.split(/[,，、\s]+/).map(function(t){return t.trim();}).filter(function(x){return !!x;});
+  var d=$('kmDate').value||todayStr();
+  if(currentKnowId){
+    var k=knowById(currentKnowId);
+    k.content=c;k.tags=tags;k.date=d;k.updatedAt=todayStr();
+  }else{
+    knows.push({id:uid(),content:c,tags:tags,date:d,createdAt:todayStr(),updatedAt:todayStr()});
+  }
+  persist();$('knowMask').classList.remove('show');renderKnows();toast('知识点已保存');
+}
+function deleteKnow(id){
+  var k=knowById(id);if(!k)return;
+  askConfirm('删除知识点','确定删除该知识点？',function(){
+    knows=knows.filter(function(x){return x.id!==id;});
+    persist();renderKnows();toast('已删除');
+  });
+}
+/* 复盘「学习到的知识点」按行收录 */
+function collectKnow(){
+  if(!requireDir())return;
+  var d=$('revDate').value||todayStr();
+  var lines=$('revLearned').value.split('\n').map(function(s){
+    return s.replace(/^[\s\d.、\-•*]+/,'').trim();
+  }).filter(function(x){return !!x;});
+  if(!lines.length){toast('「学习到的知识点」为空');return;}
+  var existed={};
+  knows.forEach(function(k){existed[k.content]=1;});
+  var added=0;
+  lines.forEach(function(l){
+    if(!existed[l]){knows.push({id:uid(),content:l,tags:[],date:d,createdAt:todayStr(),updatedAt:todayStr()});added++;}
+  });
+  if(!added){toast('这些知识点都已收录过');return;}
+  persist();
+  toast('已收录 '+added+' 条，可到「知识库」补标签');
+  activateTab('know');
+}
+
+/* ======================= .md 导出（写入工作目录 exports/） ======================= */
+async function writeExportFile(fname,text){
+  var dh=await dirHandle.getDirectoryHandle('exports',{create:true});
+  var fh=await dh.getFileHandle(fname,{create:true});
+  var w=await fh.createWritable();
+  await w.write(new Blob([text],{type:'text/markdown'}));
+  await w.close();
+}
+async function exportReviewMd(){
+  if(!requireDir())return;
+  var d=$('revDate').value||todayStr();
+  var sum=$('revSummary').value.trim(),iss=$('revIssues').value.trim(),lea=$('revLearned').value.trim(),fee=$('revFeelings').value.trim();
+  if(!sum&&!iss&&!lea&&!fee){toast('复盘内容为空，请先填写或保存');return;}
+  var r=reviewByDate(d);
+  if(r){sum=r.summary||sum;iss=r.issues||iss;lea=r.learned||lea;fee=r.feelings||fee;} /* 已保存的以保存内容为准 */
+  var lines=['# 每日复盘 · '+d,''];
+  if(sum){lines.push('## 一、今日工作总结','',sum,'');}
+  if(iss){lines.push('## 二、今日疑难点','',iss,'');}
+  if(lea){lines.push('## 三、学习到的知识点','',lea,'');}
+  if(fee){lines.push('## 四、每日总结','',fee,'');}
+  lines.push('','---','*导出自运维工作台 · '+new Date().toLocaleString('zh-CN')+'*');
+  try{
+    await writeExportFile('每日复盘_'+d+'.md',lines.join('\n'));
+    toast('已导出到工作目录 exports/每日复盘_'+d+'.md');
+  }catch(e){toast('导出失败：'+(e.message||e.name));}
+}
+
+/* ======================= 月报 ======================= */
+function shiftMonth(n){monthBase=addMonths(monthBase,n);renderMonthly();}
+function goThisMonth(){monthBase=todayStr();renderMonthly();}
+function renderMonthly(){
+  var rg=monthRangeOf(monthBase),ym=monthBase.slice(0,7);
+  $('monthRange').textContent=ym+(ym===todayStr().slice(0,7)?'（本月）':'');
+  var inM=tasks.filter(function(t){return taskInPeriod(t,rg.ws,rg.we);});
+  var nDone=inM.filter(function(t){return t.status==='done';}).length;
+  var nDoing=inM.filter(function(t){return t.status==='doing';}).length;
+  var nTodo=inM.length-nDone-nDoing;
+  var mRevs=reviews.filter(function(r){return r.date>=rg.ws&&r.date<=rg.we;});
+  $('monthStats').innerHTML=
+    '<div class="stat-card c-blue"><div class="sc-num">'+inM.length+'</div><div class="sc-label">本月任务</div></div>'
+    +'<div class="stat-card c-green"><div class="sc-num">'+nDone+'</div><div class="sc-label">已完成</div></div>'
+    +'<div class="stat-card c-orange"><div class="sc-num">'+nDoing+'</div><div class="sc-label">进行中</div></div>'
+    +'<div class="stat-card c-gray"><div class="sc-num">'+nTodo+'</div><div class="sc-label">待处理</div></div>'
+    +'<div class="stat-card c-blue"><div class="sc-num">'+mRevs.length+'</div><div class="sc-label">复盘天数</div></div>';
+  var h='';
+  projects.forEach(function(p){
+    var mine=inM.filter(function(t){return t.projectId===p.id;});
+    if(!mine.length)return;
+    h+='<div class="today-section"><h3>'+projTagHtml(p)+'<span class="cnt">'+mine.length+' 项</span></h3>';
+    mine.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(t){
+      h+=taskRowHtml(t,t.status!=='done'&&t.date<todayStr()?dayDiff(todayStr(),t.date):0);
+    });
+    h+='</div>';
+  });
+  if(!inM.length)h='<div class="empty">该月没有任务记录。</div>';
+  $('monthBody').innerHTML=h;
+}
+function buildMonthlyText(){
+  var rg=monthRangeOf(monthBase),ym=monthBase.slice(0,7);
+  var inM=tasks.filter(function(t){return taskInPeriod(t,rg.ws,rg.we);});
+  if(!inM.length&&!reviews.length){toast('该月没有记录，无法生成');return;}
+  var lines=['【运维工作月报】'+ym,''];
+  var idx=0;
+  projects.forEach(function(p){
+    var mine=inM.filter(function(t){return t.projectId===p.id;});
+    if(!mine.length)return;
+    idx++;
+    lines.push(''+cn(idx)+'、'+p.name+(p.status==='paused'?'（暂缓）':''));
+    mine.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(t,i){
+      var tag=t.status==='done'?'完成':(t.status==='doing'?'进行中':'待处理');
+      var dLabel=(t.date>=rg.ws&&t.date<=rg.we)?t.date:(t.date+' 创建，本月继续处理');
+      lines.push((i+1)+'. ['+tag+'] '+t.title+'（'+dLabel+'，'+P_NAME[t.priority]+'）');
+      appendSolutionLines(t,lines,rg.ws,rg.we);
+    });
+    lines.push('');
+  });
+  var nDone=inM.filter(function(t){return t.status==='done';}).length;
+  var nDoing=inM.filter(function(t){return t.status==='doing';}).length;
+  var nTodo=inM.length-nDone-nDoing;
+  /* 本月复盘与知识点沉淀 */
+  var mRevs=reviews.filter(function(r){return r.date>=rg.ws&&r.date<=rg.we;});
+  var mKnows=knows.filter(function(k){return k.date>=rg.ws&&k.date<=rg.we;});
+  if(mRevs.length||mKnows.length){
+    lines.push('');
+    lines.push('◆ 本月复盘与知识沉淀');
+    lines.push('复盘 '+mRevs.length+' 篇｜新增知识点 '+mKnows.length+' 条');
+    mRevs.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(r){
+      if(r.issues)lines.push('['+r.date+'] 疑难点：'+revCut(r.issues,80));
+      if(r.feelings)lines.push('['+r.date+'] 每日总结：'+revCut(r.feelings,60));
+    });
+    mKnows.slice(0,10).forEach(function(k){
+      lines.push('['+k.date+'] 知识点：'+revCut(k.content,80)+(k.tags&&k.tags.length?'（#'+k.tags.join(' #')+'）':''));
+    });
+    if(mKnows.length>10)lines.push('……等共 '+mKnows.length+' 条，详见工作台「知识库」');
+  }
+  lines.push('——');
+  lines.push('本月统计：共 '+inM.length+' 项｜完成 '+nDone+' 项｜进行中 '+nDoing+' 项｜待处理 '+nTodo+' 项');
+  $('monthlyText').value=lines.join('\n');
+  toast('月报文本已生成');
+}
+function copyMonthly(){
+  var txt=$('monthlyText').value;
+  if(!txt){toast('请先生成月报文本');return;}
+  copyText(txt);
+}
+async function exportMonthlyMd(){
+  if(!requireDir())return;
+  var txt=$('monthlyText').value;
+  if(!txt){toast('请先生成月报文本');return;}
+  try{
+    await writeExportFile('运维月报_'+monthBase.slice(0,7)+'.md',txt);
+    toast('已导出到工作目录 exports/运维月报_'+monthBase.slice(0,7)+'.md');
+  }catch(e){toast('导出失败：'+(e.message||e.name));}
+}
+
+/* ======================= 统计仪表盘 ======================= */
+function statNumbers(){
+  var t=todayStr();
+  var total=tasks.length;
+  var done=tasks.filter(function(x){return x.status==='done';}).length;
+  var doing=tasks.filter(function(x){return x.status==='doing';}).length;
+  var overdue=tasks.filter(function(x){return x.status!=='done'&&x.date<t;}).length;
+  return {total:total,done:done,doing:doing,overdue:overdue,rate:total?Math.round(done*100/total):0};
+}
+function renderStats(){
+  var s=statNumbers();
+  $('statHint').textContent='· 截至 '+todayStr();
+  $('statCards').innerHTML=
+    '<div class="stat-card c-blue"><div class="sc-num">'+s.total+'</div><div class="sc-label">任务总数</div></div>'
+    +'<div class="stat-card c-green"><div class="sc-num">'+s.rate+'%</div><div class="sc-label">总完成率</div></div>'
+    +'<div class="stat-card c-orange"><div class="sc-num">'+s.doing+'</div><div class="sc-label">进行中</div></div>'
+    +'<div class="stat-card c-gray"><div class="sc-num">'+s.overdue+'</div><div class="sc-label">逾期未完成</div></div>'
+    +'<div class="stat-card c-blue"><div class="sc-num">'+reviews.length+'</div><div class="sc-label">复盘篇数</div></div>'
+    +'<div class="stat-card c-green"><div class="sc-num">'+knows.length+'</div><div class="sc-label">知识点条数</div></div>';
+  var h='';
+  projects.forEach(function(p){
+    var mine=tasks.filter(function(x){return x.projectId===p.id;});
+    var dn=mine.filter(function(x){return x.status==='done';}).length;
+    var pct=mine.length?Math.round(dn*100/mine.length):0;
+    h+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;gap:8px"><span>'+esc(p.name)+'（'+mine.length+' 项）</span><span style="color:var(--green);font-weight:700;flex:none">'+pct+'%</span></div><div class="progress"><i style="width:'+pct+'%"></i></div></div>';
+  });
+  $('statProjects').innerHTML=h?'<div class="today-section"><h3>各项目任务完成率</h3>'+h+'</div>':'';
+  var t=todayStr(),counts=[];
+  for(var i=29;i>=0;i--){
+    var d=addDays(t,-i);
+    counts.push({d:d,c:tasks.filter(function(x){return taskInPeriod(x,d,d);}).length});
+  }
+  var mx=1;
+  counts.forEach(function(x){if(x.c>mx)mx=x.c;});
+  var bars='';
+  counts.forEach(function(x){
+    var hh=Math.max(3,Math.round(x.c*80/mx));
+    bars+='<div class="bar" style="height:'+hh+'px" title="'+x.d+'：'+x.c+' 项"><span>'+x.d.slice(8)+'</span></div>';
+  });
+  $('statBars').innerHTML=bars;
+}
+function copyStatsText(){
+  var s=statNumbers();
+  var lines=['【运维工作台统计】截至 '+todayStr(),''];
+  lines.push('任务总数：'+s.total+'｜已完成：'+s.done+'（'+s.rate+'%）｜进行中：'+s.doing+'｜逾期未完成：'+s.overdue);
+  lines.push('复盘：'+reviews.length+' 篇｜知识点：'+knows.length+' 条');
+  if(projects.length){
+    lines.push('');
+    lines.push('—— 各项目 ——');
+    projects.forEach(function(p){
+      var mine=tasks.filter(function(x){return x.projectId===p.id;});
+      var dn=mine.filter(function(x){return x.status==='done';}).length;
+      lines.push(p.name+'：'+mine.length+' 项，完成 '+dn+'（'+(mine.length?Math.round(dn*100/mine.length):0)+'%）');
+    });
+  }
+  copyText(lines.join('\n'));
+}
+
+/* ======================= 日历视图 ======================= */
+function shiftCalMonth(n){calBase=addMonths(calBase,n);renderCalendar();}
+function goCalThisMonth(){calBase=todayStr();renderCalendar();}
+function renderCalendar(){
+  var ym=calBase.slice(0,7);
+  $('calRange').textContent=ym;
+  var first=ym+'-01';
+  var lead=(new Date(first+'T00:00:00').getDay()+6)%7;
+  var t=todayStr();
+  var h='<div class="cal-grid">';
+  ['一','二','三','四','五','六','日'].forEach(function(w){h+='<div class="cal-wd">'+w+'</div>';});
+  for(var i=0;i<42;i++){
+    var d=addDays(first,i-lead);
+    var other=d.slice(0,7)!==ym;
+    var mine=tasks.filter(function(x){return taskInPeriod(x,d,d);});
+    var undone=mine.filter(function(x){return x.status!=='done';}).length;
+    var r=reviewByDate(d);
+    var kn=knows.filter(function(k){return k.date===d;}).length;
+    h+='<div class="cal-cell'+(other?' other':'')+(d===t?' today':'')+'" onclick="openDayModal(\''+d+'\')">'
+      +'<div class="cd">'+(+d.slice(8))+'</div><div class="cv">';
+    if(mine.length)h+='<span class="cal-pill'+(undone&&d<t?' red':(undone?'':''))+'">'+mine.length+' 任务</span>';
+    if(r)h+='<span class="cal-pill green">复盘</span>';
+    if(kn)h+='<span class="cal-pill blue">知 '+kn+'</span>';
+    h+='</div></div>';
+  }
+  h+='</div>';
+  $('calGrid').innerHTML=h;
+  var me=addDays(addMonths(first,1),-1);
+  var mTasks=tasks.filter(function(x){return taskInPeriod(x,first,me);}).length;
+  var mRevs=reviews.filter(function(x){return x.date.slice(0,7)===ym;}).length;
+  $('calHint').textContent='· 本月涉及任务 '+mTasks+' 项 · 复盘 '+mRevs+' 篇';
+}
+function openDayModal(d){
+  dayBase=d;
+  $('dayTitle').textContent=d+' · 当日安排';
+  var mine=tasks.filter(function(t){return taskInPeriod(t,d,d);});
+  var r=reviewByDate(d);
+  var kn=knows.filter(function(k){return k.date===d;});
+  var h='';
+  if(r)h+='<div class="tf-desc" style="margin-bottom:8px;color:var(--green);font-weight:600">✓ 已有当日复盘（总结 / 疑难 / 知识点）</div>';
+  if(kn.length)h+='<div class="tf-desc" style="margin-bottom:8px;color:var(--primary)">当日收录知识点 '+kn.length+' 条</div>';
+  if(mine.length){
+    mine.forEach(function(t){
+      var ss=solsInRange(t,d,d);
+      var solLine='';
+      if(ss.length){
+        solLine='<div class="tr-solution"><b>方案'+(ss.length>1?'（当日 '+ss.length+' 条）':'')+'：</b>'+esc(revCut(ss[0].content,80))+'</div>';
+      }else if(t.solution&&t.date===d){
+        solLine='<div class="tr-solution"><b>方案：</b>'+esc(revCut(t.solution,80))+'</div>';
+      }
+      var mark=t.date!==d?'<span class="badge" style="background:var(--primary-bg);color:var(--primary)">续处理</span>':'';
+      h+='<div class="task-row" style="cursor:pointer" onclick="closeDayModal();openTaskModal(\''+t.id+'\')">'
+        +'<div class="tr-main"><div class="tr-title">'+esc(t.title)+'</div>'
+        +'<div class="tr-meta">'+projTagHtml(projById(t.projectId))+'<span class="badge st-'+t.status+'">'+S_NAME[t.status]+'</span><span class="badge '+t.priority.toLowerCase()+'">'+P_NAME[t.priority]+'</span>'+mark+'</div>'
+        +solLine
+        +'</div></div>';
+    });
+  }else h+='<div class="empty">当天没有任务记录</div>';
+  $('dayBody').innerHTML=h;
+  $('dayMask').classList.add('show');
+}
+function closeDayModal(){$('dayMask').classList.remove('show');}
+function dayGoReview(){closeDayModal();activateTab('review');openReviewByDate(dayBase);}
+
+/* ======================= 自动备份恢复 ======================= */
+async function openRestore(){
+  if(!requireDir())return;
+  var h='';
+  try{
+    var dh=await dirHandle.getDirectoryHandle('backups');
+    var names=[];
+    for await (var en of dh.keys()){if(en.indexOf('data_')===0)names.push(en);}
+    names.sort().reverse();
+    if(!names.length)h='<div class="empty">还没有自动备份（保存数据约 10 分钟后会自动产生一份）</div>';
+    names.forEach(function(n){
+      h+='<div class="att-file" style="justify-content:space-between;margin-bottom:8px">'
+        +'<span class="fname" style="max-width:280px">'+esc(n)+'</span>'
+        +'<button class="btn btn-sm" onclick="doRestoreBackup(\''+n+'\')">恢复</button>'
+        +'</div>';
+    });
+  }catch(e){h='<div class="empty">还没有自动备份</div>';}
+  $('restoreList').innerHTML=h;
+  $('restoreMask').classList.add('show');
+}
+async function doRestoreBackup(fname){
+  try{
+    var dh=await dirHandle.getDirectoryHandle('backups');
+    var fh=await dh.getFileHandle(fname);
+    var txt=await (await fh.getFile()).text();
+    var d=JSON.parse(txt);
+    if(!d||!Array.isArray(d.projects)||!Array.isArray(d.tasks)){toast('备份文件内容无效');return;}
+    askConfirm('恢复备份','将把数据回滚到备份「'+fname+'」时的状态，当前未备份的修改将丢失（附件文件不受影响）。确定恢复？',async function(){
+      projects=d.projects||[];tasks=d.tasks||[];reviews=d.reviews||[];knows=d.knows||[];meta=d.meta||{sample:false};
+      tasks.forEach(function(t){t.atts=t.atts||[]; if(!t.solutions){t.solutions=t.solution?[{id:uid(),content:t.solution,createdAt:t.updatedAt||t.date}]:[];}});
+      reviews.forEach(function(r){r.atts=r.atts||[];});
+      knows.forEach(function(k){k.tags=k.tags||[];});
+      urlCache={};
+      await writeDataNow();
+      $('restoreMask').classList.remove('show');
+      renderAll();toast('已从备份 '+fname+' 恢复');
+    });
+  }catch(e){toast('读取备份失败：'+(e.message||e.name));}
+}
+
+/* ======================= 周报 ======================= */
+function shiftWeek(n){weekBase=addDays(weekBase,n*7);renderWeekly();}
+function goThisWeek(){weekBase=todayStr();renderWeekly();}
+function renderWeekly(){
+  var ws=weekStart(weekBase),we=addDays(ws,6);
+  $('weekRange').textContent=ws+' ~ '+we+(ws===weekStart(todayStr())?'（本周）':'');
+  var inWeek=tasks.filter(function(t){return taskInPeriod(t,ws,we);});
+  var nDone=inWeek.filter(function(t){return t.status==='done';}).length;
+  var nDoing=inWeek.filter(function(t){return t.status==='doing';}).length;
+  var nTodo=inWeek.length-nDone-nDoing;
+  $('weekStats').innerHTML=
+    '<div class="stat-card c-blue"><div class="sc-num">'+inWeek.length+'</div><div class="sc-label">本周任务</div></div>'
+    +'<div class="stat-card c-green"><div class="sc-num">'+nDone+'</div><div class="sc-label">已完成</div></div>'
+    +'<div class="stat-card c-orange"><div class="sc-num">'+nDoing+'</div><div class="sc-label">进行中</div></div>'
+    +'<div class="stat-card c-gray"><div class="sc-num">'+nTodo+'</div><div class="sc-label">待处理</div></div>';
+  var h='';
+  projects.forEach(function(p){
+    var mine=inWeek.filter(function(t){return t.projectId===p.id;});
+    if(!mine.length)return;
+    h+='<div class="today-section"><h3>'+projTagHtml(p)+'<span class="cnt">'+mine.length+' 项</span></h3>';
+    mine.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(t){
+      h+=taskRowHtml(t,t.status!=='done'&&t.date<todayStr()?dayDiff(todayStr(),t.date):0);
+    });
+    h+='</div>';
+  });
+  if(!inWeek.length)h='<div class="empty">该周没有任务记录。</div>';
+  $('weekBody').innerHTML=h;
+}
+function buildWeeklyText(){
+  var ws=weekStart(weekBase),we=addDays(ws,6);
+  var inWeek=tasks.filter(function(t){return taskInPeriod(t,ws,we);});
+  if(!inWeek.length){toast('该周没有任务，无法生成');return;}
+  var lines=[];
+  lines.push('【运维工作周报】'+ws+' ~ '+we);
+  lines.push('');
+  var idx=0;
+  projects.forEach(function(p){
+    var mine=inWeek.filter(function(t){return t.projectId===p.id;});
+    if(!mine.length)return;
+    idx++;
+    lines.push(''+cn(idx)+'、'+p.name+(p.status==='paused'?'（暂缓）':''));
+    mine.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(t,i){
+      var tag=t.status==='done'?'完成':(t.status==='doing'?'进行中':'待处理');
+      var dLabel=(t.date>=ws&&t.date<=we)?t.date:(t.date+' 创建，本周继续处理');
+      lines.push((i+1)+'. ['+tag+'] '+t.title+'（'+dLabel+'，'+P_NAME[t.priority]+'）');
+      appendSolutionLines(t,lines,ws,we);
+    });
+    lines.push('');
+  });
+  var nDone=inWeek.filter(function(t){return t.status==='done';}).length;
+  var nDoing=inWeek.filter(function(t){return t.status==='doing';}).length;
+  var nTodo=inWeek.length-nDone-nDoing;
+  /* 汇入本周每日复盘要点（疑难点 / 知识点） */
+  var weekRevs=reviews.filter(function(r){return r.date>=ws&&r.date<=we&&(r.issues||r.learned);});
+  if(weekRevs.length){
+    weekRevs.sort(function(a,b){return a.date<b.date?-1:1;});
+    lines.push('');
+    lines.push('◆ 本周每日复盘要点');
+    weekRevs.forEach(function(r){
+      if(r.issues)lines.push('['+r.date+'] 疑难点：'+revCut(r.issues,80));
+      if(r.learned)lines.push('['+r.date+'] 知识点：'+revCut(r.learned,80));
+      if(r.feelings)lines.push('['+r.date+'] 每日总结：'+revCut(r.feelings,60));
+    });
+  }
+  lines.push('——');
+  lines.push('本周统计：共 '+inWeek.length+' 项｜完成 '+nDone+' 项｜进行中 '+nDoing+' 项｜待处理 '+nTodo+' 项');
+  $('weeklyText').value=lines.join('\n');
+  toast('周报文本已生成');
+}
+function cn(n){return ['一','二','三','四','五','六','七','八','九','十'][n-1]||n;}
+function copyWeekly(){
+  var txt=$('weeklyText').value;
+  if(!txt){toast('请先生成周报文本');return;}
+  copyText(txt);
+}
+async function exportWeeklyMd(){
+  if(!requireDir())return;
+  var txt=$('weeklyText').value;
+  if(!txt){toast('请先生成周报文本');return;}
+  var ws=weekStart(weekBase),we=addDays(ws,6);
+  try{
+    await writeExportFile('运维周报_'+ws+'_'+we+'.md',txt);
+    toast('已导出到工作目录 exports/运维周报_'+ws+'_'+we+'.md');
+  }catch(e){toast('导出失败：'+(e.message||e.name));}
+}
+function fallbackCopy(txt){
+  var ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');toast('已复制，可粘贴到微信 / 邮件');}catch(e){toast('复制失败，请手动全选复制');}
+  ta.remove();
+}
+
+/* ======================= 备份（单文件 JSON 快照，附件转 base64） / 恢复 / 清空 ======================= */
+async function exportData(){
+  if(!requireDir())return;
+  var filesArr=[];
+  for(var i=0;i<tasks.length;i++){
+    var ats=tasks[i].atts||[];
+    for(var j=0;j<ats.length;j++){
+      try{
+        var f=await getAttFile(ats[j]);
+        var buf=await f.arrayBuffer();
+        var bin='';var bytes=new Uint8Array(buf);var chunk=32768;
+        for(var k=0;k<bytes.length;k+=chunk)bin+=String.fromCharCode.apply(null,bytes.subarray(k,k+chunk));
+        filesArr.push({id:ats[j].id,taskId:tasks[i].id,slot:ats[j].slot,name:ats[j].name,size:ats[j].size,isImg:ats[j].isImg,b64:btoa(bin)});
+      }catch(e){}
+    }
+  }
+  /* 复盘附件一并导出 */
+  for(var r=0;r<reviews.length;r++){
+    var rats=reviews[r].atts||[];
+    for(var s=0;s<rats.length;s++){
+      try{
+        var rf=await getAttFile(rats[s]);
+        var rbuf=await rf.arrayBuffer();
+        var rbin='';var rbytes=new Uint8Array(rbuf);var rchunk=32768;
+        for(var q=0;q<rbytes.length;q+=rchunk)rbin+=String.fromCharCode.apply(null,rbytes.subarray(q,q+rchunk));
+        filesArr.push({id:rats[s].id,taskId:reviews[r].id,slot:rats[s].slot,name:rats[s].name,size:rats[s].size,isImg:rats[s].isImg,b64:btoa(rbin)});
+      }catch(e){}
+    }
+  }
+  var payload={version:2,exportedAt:new Date().toISOString(),meta:meta,projects:projects,tasks:tasks,reviews:reviews,knows:knows,files:filesArr};
+  var blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='运维工作台备份_'+todayStr()+'.json';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},3000);
+  toast('备份已导出（含全部附件）');
+}
+$('btnExport').onclick=function(){exportData();};
+$('btnImport').onclick=function(){$('importFile').click();};
+$('importFile').onchange=function(e){
+  var file=e.target.files[0];if(!file)return;
+  var r=new FileReader();
+  r.onload=function(){
+    var d;
+    try{d=JSON.parse(r.result);}catch(err){toast('文件格式不正确');return;}
+    if(!d||!Array.isArray(d.projects)||!Array.isArray(d.tasks)){toast('不是有效的工作台备份文件');return;}
+    askConfirm('导入恢复','将用备份中的 '+d.projects.length+' 个项目、'+d.tasks.length+' 个任务、'+(d.reviews?d.reviews.length:0)+' 篇复盘、'+(d.knows?d.knows.length:0)+' 条知识点、'+(d.files?d.files.length:0)+' 个附件覆盖当前工作目录数据，且不可撤销。确定继续？',async function(){
+      projects=d.projects;tasks=d.tasks;reviews=d.reviews||[];knows=d.knows||[];
+      tasks.forEach(function(t){t.atts=t.atts||[]; if(!t.solutions){t.solutions=t.solution?[{id:uid(),content:t.solution,createdAt:t.updatedAt||t.date}]:[];}});
+      reviews.forEach(function(rv){rv.atts=rv.atts||[];});
+      knows.forEach(function(k){k.tags=k.tags||[];});
+      meta=d.meta||{sample:false};
+      /* 先清掉工作目录中现有附件文件 */
+      var existing=[];
+      try{
+        var dh=await dirHandle.getDirectoryHandle('attachments',{create:true});
+        for await (var en of dh.keys()){existing.push(en);}
+        for(var m=0;m<existing.length;m++){try{await dh.removeEntry(existing[m]);}catch(e){}}
+      }catch(e){}
+      /* 重建附件 */
+      var files=d.files||[];
+      for(var n=0;n<files.length;n++){
+        var f=files[n];
+        var t=taskById(f.taskId)||reviewById(f.taskId);if(!t)continue;
+        try{
+          var bin=atob(f.b64);var len=bin.length;var bytes=new Uint8Array(len);
+          for(var q=0;q<len;q++)bytes[q]=bin.charCodeAt(q);
+          var blob=new Blob([bytes]);
+          var path=await writeAttFile(blob,f.taskId,f.slot,f.name);
+          t.atts.push({id:f.id||uid(),slot:f.slot,name:f.name,size:f.size||blob.size,isImg:!!f.isImg,file:path,ts:Date.now()});
+        }catch(e){}
+      }
+      await writeDataNow();
+      renderAll();toast('数据已恢复到工作目录');
+    });
+  };
+  r.readAsText(file);
+  e.target.value='';
+};
+$('btnWipe').onclick=function(){
+  if(!requireDir())return;
+  askConfirm('清空全部数据','⚠ 此操作非常危险，可能导致不可逆的数据丢失！将清空工作目录中的 data.json 与全部附件文件（含复盘、知识点）。建议先「导出备份」。确定要清空吗？',async function(){
+    projects=[];tasks=[];reviews=[];knows=[];meta={sample:false};
+    try{
+      var dh=await dirHandle.getDirectoryHandle('attachments',{create:true});
+      var names=[];
+      for await (var name of dh.keys()){names.push(name);}
+      for(var i=0;i<names.length;i++){try{await dh.removeEntry(names[i]);}catch(e){}}
+    }catch(e){}
+    urlCache={};
+    await writeDataNow();
+    renderAll();toast('工作目录数据已清空');
+  });
+};
+function askConfirm(title,body,onOk){
+  $('cfTitle').textContent=title;$('cfBody').textContent=body;
+  var ok=$('cfOk');
+  ok.onclick=function(){closeConfirm();onOk();};
+  $('confirmMask').classList.add('show');
+}
+function closeConfirm(){$('confirmMask').classList.remove('show');}
+
+/* ======================= Tab 切换 / 初始化 ======================= */
+function activateTab(name){
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('active',t.dataset.tab===name);});
+  document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='tab-'+name);});
+  if(name==='weekly')renderWeekly();
+  if(name==='review')renderReview();
+  if(name==='monthly')renderMonthly();
+  if(name==='know')renderKnows();
+  if(name==='stats')renderStats();
+  if(name==='calendar')renderCalendar();
+}
+document.getElementById('tabs').addEventListener('click',function(e){
+  var btn=e.target.closest('.tab');if(!btn)return;
+  activateTab(btn.dataset.tab);
+});
+$('tmFileTask').onchange=function(e){handleFiles(e.target.files,'task');e.target.value='';};
+$('tmFileSol').onchange=function(e){handleFiles(e.target.files,'sol');e.target.value='';};
+$('qaDate').value=todayStr();
+function renderAll(){
+  if(!dirHandle)return;
+  renderToday();renderTasks();renderProjects();renderReviewList();
+  if(document.querySelector('#tab-review').classList.contains('active'))renderReview();
+  if(document.querySelector('#tab-weekly').classList.contains('active'))renderWeekly();
+  if(document.querySelector('#tab-monthly').classList.contains('active'))renderMonthly();
+  if(document.querySelector('#tab-know').classList.contains('active'))renderKnows();
+  if(document.querySelector('#tab-stats').classList.contains('active'))renderStats();
+  if(document.querySelector('#tab-calendar').classList.contains('active'))renderCalendar();
+  $('qaProject').innerHTML=projects.length?projects.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>';}).join(''):'<option value="">（请先创建项目）</option>';
+  $('backupHint').style.display=(tasks.length>=30||reviews.length>=15)?'flex':'none';
+}
+/* 启动：恢复上次的工作目录（若权限仍在则自动连接，否则显示连接层） */
+(async function boot(){
+  updateConnUI();
+  if(!window.showDirectoryPicker){openLock(false);return;}
+  var h=await loadHandle();
+  if(!h){openLock(false);return;}
+  hasStoredHandle=true;
+  var perm=null;
+  try{perm=await h.queryPermission({mode:'readwrite'});}catch(e){}
+  if(perm==='granted'){
+    dirHandle=h;
+    await connectFinish();
+  }else{
+    openLock(false); /* 需用户点击授权 */
+  }
+})();
+</script>
+</body>
+</html>

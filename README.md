@@ -1,269 +1,175 @@
-# 砾石 (Pebble)
-
 <div align="center">
 
-![Wails](https://img.shields.io/badge/Wails-v2.x-00ADD8?style=for-the-badge&logo=go&logoColor=white)
-![Vue.js](https://img.shields.io/badge/Vue.js-v3.x-4FC08D?style=for-the-badge&logo=vue.js&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-v5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-v5.x-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![Pinia](https://img.shields.io/badge/Pinia-v3.x-FFD859?style=for-the-badge&logo=pinia&logoColor=black)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v3.x-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-3.x-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+# 🪨 Pebble · 运维工作台
 
-一个优雅的项目文档管理系统，基于 Wails + Vue3 + TypeScript + Pinia + TailwindCSS + DaisyUI 构建
+**面向驻场软件项目运维工程师的个人工作台**
 
-**保护您的文档安全，高效管理项目**
+单文件 · 零依赖 · 数据完全保存在本地
+
+![Web](https://img.shields.io/badge/Platform-Web-blue)
+![Pure HTML](https://img.shields.io/badge/Stack-Vanilla%20JS%20%2F%20No%20Build-orange)
+![Zero Dependency](https://img.shields.io/badge/Dependencies-0-green)
+![Local-first](https://img.shields.io/badge/Storage-Local%20Files-purple)
 
 </div>
+
+---
+
+## 📖 项目简介
+
+Pebble（运维工作台）是一款为 **驻场软件项目运维工程师** 打造的个人工作台网页应用，覆盖从「接收任务 → 解决问题 → 沉淀方案」到「每日复盘 → 周报月报 → 知识沉淀」的完整工作闭环。
+
+- **单文件架构**：整个应用只有一个 `ops-workbench.html`，CSS / JS / 图标全部内联，无任何外部依赖，可离线运行。
+- **本地优先存储**：所有数据与附件都写入你自选的本地文件夹（`data.json` + `attachments/`），不经过任何云端，**清浏览器缓存、重装系统都不丢数据**，适合业主单位数据保密场景。
+- **零成本部署**：无需数据库、无需构建工具，一个本地静态服务器即可运行。
+
+> 典型场景：运维工程师驻场业主单位，每天接收项目任务 → 排查处理（可能跨多天 / 被返工）→ 下班前 5 分钟复盘当日工作与知识点 → 周末一键生成周报。
+
+---
 
 ## ✨ 功能特性
 
 ### 📁 项目管理
-- 创建、编辑、删除项目
-- 每个项目独立密码保护
-- 按时间线显示项目
-- 支持自定义存储路径
+- 管理驻场的多个项目：名称、状态（进行中 / 暂缓 / 已完结）、业主备注
+- 每个项目自动统计任务数与完成情况
 
-### 📋 问题跟踪
-- 记录项目问题
-- 支持问题状态管理（待解决、进行中、已解决）
-- 支持对接人信息
-- 问题与文档关联
+### ✅ 每日任务与解决方案
+- 按日期新建任务：关联项目、P0/P1/P2 优先级、任务来源、详细描述
+- **解决方案多次追加记录**：每次点「添加方案记录」生成一条带时间戳的历史记录，互不覆盖——天然支持**跨多天处理**与**业主返工重做**场景
+- 任务附件、方案附件均支持 **点击上传 + 拖拽上传**（图片自动压缩、原件存本地）
 
-### 📄 文档管理
-- 上传文档（支持拖拽、批量上传）
-- AES-256加密存储
-- 文件名乱码存储，防止外部访问
-- 支持脱密导出原始文件
+### 📝 每日复盘
+每天一篇，四个板块：
+1. **今日工作总结** —— 可从当日任务一键生成（按方案记录时间口径，跨天续处理不遗漏）
+2. **今日疑难点** —— 记录卡住的问题、待向业主/厂商确认事项
+3. **学习到的知识点** —— 新命令、踩坑经验，支持**按行收录到知识库**
+4. **每日总结** —— 记录一天的工作感受
 
-### 🏷️ 标签系统
-- 创建、编辑、删除标签
-- 自定义标签颜色
-- 文档标签管理
-- 标签搜索
+支持按天翻阅历史、附件、一键复制复盘文本、**导出 Markdown 文件**
 
-### 🔍 搜索功能
-- 元数据搜索（标题、标签、描述）
-- 支持项目内搜索
-- 搜索历史记录
+### 📊 周报 & 月报
+- **智能周期口径**：任务在周期内创建 *或* 周期内新增过方案记录即纳入，跨周/跨月续处理的任务不再丢失
+- 方案按条输出（带日期），只列当周/当月新增记录
+- 一键生成格式化文本、复制、**导出 .md 文件**
 
-### 🔐 安全特性
-- 每个项目独立密码
-- 启动时输入密码验证
-- 软件运行期间会话保持
-- 退出后会话失效
+### 🧠 知识库（Markdown 渲染 + 标签检索）
+- 手打或**导入 .md / .markdown / .txt 文件**作为知识点（支持拖拽）
+- **Markdown 渲染展示**：标题 / 加粗 / 代码块 / 列表 / 引用 / 链接 / 分隔线（内置零依赖渲染器，含 XSS 转义）
+- 每条可打多个标签，**标签云点击筛选 + 全文关键词检索**
 
-### 🎨 界面设计
-- 柔和渐变式设计
-- 小清新优雅风格
-- 明暗主题切换
-- 平滑动画效果
-- 响应式布局
+### 📅 日历视图
+- 月历直观展示每天的任务密度（逾期标红）、复盘与知识点
+- 点日期弹出当日任务清单，一键跳转任务详情或当日复盘
 
-### 📊 统计报表
-- 项目数量统计
-- 问题数量统计
-- 文档数量统计
-- 问题状态分布
+### 📈 统计仪表盘
+- 任务总数 / 完成率 / 进行中 / 逾期 / 复盘篇数 / 知识点数 六张统计卡片
+- 各项目完成率进度条 + 近 30 天每日任务量柱状图
+- 一键复制统计文本，便于向业主汇报
 
-### ⚡ 快速输入
-- 浮窗快速输入问题
-- 快捷键支持（Ctrl+N）
-- 快速创建问题记录
+### ⏰ 今天要处理
+- 页面置顶：自动列出逾期、今日到期任务，逾期项标红
+- **昨天没做完的自动顺延到今天**，不会凭空消失
 
-## 🛠️ 技术栈
+### 💾 数据安全（三层保障）
+| 层级 | 机制 |
+|---|---|
+| 真实文件 | 数据存本地文件夹，不怕清缓存 |
+| 自动滚动备份 | 保存时自动在 `backups/` 写快照（保留最近 10 份），可一键回滚 |
+| 整目录备份 | 导出 JSON 全量备份（含附件 base64）随时下载 / 整个目录拷贝即备份 |
 
-| 技术 | 版本 | 描述 |
-|------|------|------|
-| [Wails](https://wails.io) | v2.x | 使用 Go 和 Web 技术构建桌面应用 |
-| [Vue 3](https://vuejs.org) | v3.x | 渐进式 JavaScript 框架 |
-| [TypeScript](https://www.typescriptlang.org) | v5.x | JavaScript 的超集，添加了静态类型 |
-| [Vite](https://vitejs.dev) | v5.x | 下一代前端构建工具 |
-| [Pinia](https://pinia.vuejs.org) | v3.x | Vue 的状态管理库 |
-| [TailwindCSS](https://tailwindcss.com) | v3.x | 实用优先的 CSS 框架 |
-| [DaisyUI](https://daisyui.com) | v5.x | TailwindCSS 的组件库 |
-| [SQLite](https://www.sqlite.org) | - | 轻量级数据库 |
-| [modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite) | - | 纯Go SQLite驱动 |
+---
 
-## 📦 安装
+## 🚀 快速开始
 
-### 前置要求
+### 环境要求
+- Windows（推荐）+ **Chrome 或 Edge 浏览器**
+- 无需安装任何运行时
 
-- [Go](https://golang.org/dl/) 1.21+
-- [Node.js](https://nodejs.org/) 18+
-- [Wails CLI](https://wails.io/docs/gettingstarted/installation)
+### 启动（二选一）
 
-### 克隆项目
+**方式一：双击启动器**（推荐）
 
-```bash
-git clone https://github.com/your-username/Pebble.git
-cd Pebble
-
-# 安装前端依赖
-cd frontend
-npm install
-cd ..
+```
+双击 启动工作台.bat
 ```
 
-## 🚀 开发
+**方式二：命令行启动**
 
-### 开发模式
-
-```bash
-# 启动开发服务器
-wails dev
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File server.ps1
 ```
 
-### 构建应用
+启动后自动打开 `http://localhost:8730/ops-workbench.html`。**运行期间请保持黑窗口开启**，关闭即停止服务。
 
-```bash
-# 构建生产版本
-wails build
+> **为什么需要本地服务？**
+> 数据通过浏览器 **File System Access API** 写入真实本地文件。出于浏览器安全策略，该 API 在 `file://` 双击打开的页面中被禁用，因此需要一个 `localhost` 环境。本仓库内置了一个极简 HttpListener 静态服务器（`server.ps1`），无需安装任何依赖。
+
+### 首次使用
+1. 启动后点击 **「选择工作目录」**，新建一个专门的数据目录（如 `D:\OpsData`，建议放在非系统盘）
+2. 页面内置示例数据，可先浏览效果，再点「清空示例数据」开始正式使用
+3. 以后每次启动：打开页面 → 点「连接上次的工作目录」→ 正常使用（该授权为浏览器安全机制）
+
+---
+
+## 📂 工作目录结构
+
+选择工作目录后，应用会自动在其中创建以下结构：
+
+```
+OpsData/                      ← 你选择的工作目录（以 D:\OpsData 为例）
+├── data.json                 # 项目 / 任务 / 复盘 / 知识点等全部元数据
+├── attachments/              # 图片、日志等附件原件（独立文件，不进 JSON）
+├── backups/                  # 自动滚动备份快照（保留最近 10 份）
+└── exports/                  # 导出的复盘 / 周报 / 月报 Markdown 文档
 ```
 
-### 仅前端开发
+整个目录即完整数据，可整体拷贝到 U 盘 / 网盘备份，或换电脑继续使用。
 
-```bash
-cd frontend
-npm run dev
-```
+---
 
-## 📁 项目结构
+## 🗂 项目结构
 
 ```
 Pebble/
-├── app.go                 # Wails 应用入口
-├── main.go                # Go 主程序
-├── wails.json             # Wails 配置文件
-├── build/                 # 构建输出目录
-├── internal/              # 内部包
-│   ├── database/          # 数据库管理
-│   │   ├── database.go    # 数据库初始化
-│   │   └── models.go      # 数据模型
-│   ├── handlers/          # 业务处理器
-│   │   ├── project.go     # 项目管理
-│   │   ├── issue.go       # 问题跟踪
-│   │   ├── document.go    # 文档管理
-│   │   ├── tag.go         # 标签管理
-│   │   ├── search.go      # 搜索功能
-│   │   ├── settings.go    # 设置管理
-│   │   └── activity.go    # 活动日志
-│   └── crypto/            # 加密工具
-│       └── crypto.go      # AES-256加密
-├── frontend/              # 前端代码
-│   ├── src/
-│   │   ├── components/    # Vue 组件
-│   │   │   ├── TitleBar.vue       # 自定义标题栏
-│   │   │   ├── Sidebar.vue        # 可展开侧边栏
-│   │   │   ├── ProjectList.vue    # 项目列表
-│   │   │   ├── ProjectForm.vue    # 项目表单
-│   │   │   ├── IssueList.vue      # 问题列表
-│   │   │   ├── IssueForm.vue      # 问题表单
-│   │   │   ├── DocumentList.vue   # 文档列表
-│   │   │   ├── DocumentUpload.vue # 文档上传
-│   │   │   ├── TagList.vue        # 标签列表
-│   │   │   ├── TagForm.vue        # 标签表单
-│   │   │   ├── SearchBar.vue      # 搜索栏
-│   │   │   ├── ProjectLogin.vue   # 项目登录
-│   │   │   └── QuickInput.vue     # 快速输入
-│   │   ├── stores/        # Pinia 状态管理
-│   │   │   ├── project.ts         # 项目状态
-│   │   │   ├── issue.ts           # 问题状态
-│   │   │   ├── document.ts        # 文档状态
-│   │   │   ├── tag.ts             # 标签状态
-│   │   │   ├── search.ts          # 搜索状态
-│   │   │   ├── settings.ts        # 设置状态
-│   │   │   ├── auth.ts            # 认证状态
-│   │   │   └── quickInput.ts      # 快速输入状态
-│   │   ├── views/         # 页面组件
-│   │   │   ├── Home.vue           # 首页
-│   │   │   ├── Projects.vue       # 项目管理
-│   │   │   ├── Settings.vue       # 设置页面
-│   │   │   └── Statistics.vue     # 统计报表
-│   │   ├── utils/         # 工具函数
-│   │   │   └── shortcuts.ts       # 快捷键
-│   │   ├── App.vue        # 主应用组件
-│   │   ├── main.ts        # 前端入口
-│   │   ├── router.ts      # 路由配置
-│   │   └── style.css      # 全局样式
-│   ├── package.json       # 前端依赖
-│   └── tailwind.config.cjs # TailwindCSS 配置
+├── ops-workbench.html        # 工作台应用本体（单文件，全部功能）
+├── server.ps1                # 本地静态服务器（HttpListener，端口 8730）
+├── 启动工作台.bat            # 一键启动器（Windows）
 └── README.md
 ```
 
-## 🎨 界面设计
+---
 
-### 配色方案
-- **主色渐变**: #667eea → #764ba2（蓝紫色渐变）
-- **辅助色渐变**: #f093fb → #f5576c（粉紫色渐变）
-- **成功色**: #10b981（绿色）
-- **警告色**: #f59e0b（橙色）
-- **错误色**: #ef4444（红色）
+## 🛠 技术实现要点
 
-### 界面特点
-- 柔和渐变背景
-- 毛玻璃效果
-- 平滑动画过渡
-- 圆角设计
-- 响应式布局
+| 关注点 | 方案 |
+|---|---|
+| 架构 | 单文件 HTML，CSS/JS 全内联，可离线运行 |
+| 外部依赖 | **零**（无框架、无 CDN、无字体库、无图表库） |
+| 数据读写 | File System Access API + 300ms 防抖 + 串行写队列 |
+| 附件性能 | 独立文件流式写入，增删附件不触碰其他数据 |
+| Markdown | 手写轻量解析器（约百行），渲染前先 HTML 转义防 XSS |
+| 图标 / 图表 | 内联 SVG 手写，不用 emoji 当图标 |
+| 主题 | CSS 变量实现，可一键扩展主题 |
+| 响应式 | PC / 移动端自适应，移动端按钮 ≥44px、输入框 ≥16px |
 
-## 🔧 数据存储
+---
 
-### 存储位置
-- 默认路径: `用户目录/砾石/`
-- 自定义路径: 可在设置中配置
+## 🔒 隐私与安全
 
-### 数据库
-- 使用SQLite存储元数据
-- 纯Go实现，无需额外依赖
+- **数据不上云**：应用与数据完全运行在你的电脑本地，无任何网络上传行为
+- 页面不会预填任何真实隐私数据；示例数据仅用于功能演示
+- 导出备份为 JSON 文件，请妥善保管（内含附件）
 
-### 文档存储
-- AES-256加密存储
-- 文件名乱码存储
-- 支持脱密导出
+---
 
-## 📝 使用说明
+## 📄 License
 
-### 创建项目
-1. 点击"新建项目"按钮
-2. 输入项目名称、描述和密码
-3. 保存项目
+MIT（如需开源协议文本，请按需补充 `LICENSE` 文件）
 
-### 添加问题
-1. 选择项目
-2. 点击"新建问题"按钮
-3. 输入问题标题、描述和对接人
-4. 保存问题
+---
 
-### 上传文档
-1. 选择问题
-2. 点击"上传文档"按钮
-3. 输入文档标题、选择文件和加密密码
-4. 上传文档
+<div align="center">
 
-### 搜索功能
-1. 在搜索栏输入关键词
-2. 系统自动搜索匹配的项目、问题、文档和标签
-3. 点击搜索结果跳转到对应页面
+Made with 🛠 for operations engineers · Pebble
 
-### 快速输入
-1. 按 Ctrl+N 打开快速输入窗口
-2. 选择项目
-3. 输入问题标题和描述
-4. 快速创建问题
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-## 📄 许可证
-
-[MIT License](LICENSE)
-
-## 🙏 致谢
-
-- [Wails](https://wails.io) - 优秀的桌面应用框架
-- [Vue.js](https://vuejs.org) - 渐进式前端框架
-- [TailwindCSS](https://tailwindcss.com) - 实用优先的CSS框架
-- [DaisyUI](https://daisyui.com) - 美观的组件库
-- [Iconify](https://iconify.design) - 丰富的图标库
+</div>
