@@ -786,36 +786,112 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
  * - data.json        项目 / 任务 / 方案元数据
  * - attachments/     图片与文件附件（真实文件，独立写入）
  * - 目录句柄持久化在 IndexedDB（仅存"指针"，缓存丢了只需重选一次目录）
+ * ========================================================
+ * 脚本内部分区（重构后架构，函数全部保持在全局作用域）：
+ *   1. 常量与内联图标   2. 通用工具        3. 轻量 Markdown 渲染
+ *   4. 全局状态         5. 句柄持久化      6. 工作目录连接流程
+ *   7. 数据读写/备份/规范化/迁移           8. 附件模块        9. 示例数据
+ *   10. 查询与项目模块  11. 任务列表/今日  12. 任务详情弹窗
+ *   13. 每日复盘        14. 知识库         15. 导出 .md
+ *   16. 周期统计公共    17. 周报           18. 月报
+ *   19. 统计仪表盘      20. 日历视图       21. 备份恢复/导入导出/清空
+ *   22. 公共确认弹窗    23. Tab/事件绑定/启动
+ * 【重要】页面 HTML 使用大量 inline onclick（如 onclick="openTaskModal('x')"），
+ * 因此以下业务函数名与签名严禁更改，也不可包进 IIFE / module 作用域，否则全部按钮失效。
  * ======================================================== */
 
-/* ======================= 工具 ======================= */
+/* ======================= 1. 常量与内联图标 ======================= */
+var P_NAME={'P0':'P0 紧急','P1':'P1 高','P2':'P2 常规'};
+var S_NAME={todo:'待处理',doing:'进行中',done:'已完成'};
+var PROJ_S={active:'进行中',paused:'暂缓',finished:'已完结'};
+var OLD_LS_KEY='wb_ops_data'; // 旧版（浏览器存储版）数据，用于迁移
+/* [重构] JS 动态生成的附件卡片里反复拼接的 4 段 SVG，抽为常量（HTML 静态部分不动） */
+var ICON={
+  imgDel:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>',
+  attFile:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="color:var(--primary);flex:none"><path d="M14 3v5h5M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+  download:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  trash:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m3 0l-1 13a2 2 0 01-2 2H9a2 2 0 01-2-2L6 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+};
+
+/* ======================= 2. 通用工具 ======================= */
 var $=function(id){return document.getElementById(id);};
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function todayStr(){var d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
 function p2(n){return n<10?'0'+n:''+n;}
+function todayStr(){var d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
 function addDays(str,n){var d=new Date(str+'T00:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
 function dayDiff(a,b){var d1=new Date(a+'T00:00:00'),d2=new Date(b+'T00:00:00');return Math.round((d1-d2)/86400000);}
 function weekStart(str){var d=new Date(str+'T00:00:00');var w=(d.getDay()+6)%7;d.setDate(d.getDate()-w);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
 function addMonths(str,n){var y=+str.slice(0,4),m=+str.slice(5,7)-1+n;var d=new Date(y,m,1);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-01';}
 function monthRangeOf(base){var ms=base.slice(0,7)+'-01';var dim=new Date(+base.slice(0,4),+base.slice(5,7),0).getDate();return {ws:ms,we:base.slice(0,7)+'-'+p2(dim)};}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';return (b/1048576).toFixed(1)+' MB';}
+/* 中文序号（周报/月报「一、二、…」），超出表则回退数字 */
+function cn(n){return ['一','二','三','四','五','六','七','八','九','十'][n-1]||n;}
+/* 文本清洗：合并行内多余空格/Tab 为单空格；去掉每行首尾空白；保留 \n 换行。用于周报/月报里全文输出方案/复盘/知识点 */
+function cleanText(s){return String(s||'').replace(/[ \t]+/g,' ').replace(/^[ \t]+|[ \t]+$/gm,'');}
+/* 列表摘要截断（复盘记录、日历弹窗方案行） */
+function revCut(s,n){s=String(s||'').replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n)+'…':s;}
+/* Toast：单例复用同一 DOM，重复调用先清掉上一次的隐藏定时器，避免闪烁互踩 */
 function toast(msg){var t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._tm);t._tm=setTimeout(function(){t.classList.remove('show');},2400);}
-var P_NAME={'P0':'P0 紧急','P1':'P1 高','P2':'P2 常规'};
-var S_NAME={todo:'待处理',doing:'进行中',done:'已完成'};
-var PROJ_S={active:'进行中',paused:'暂缓',finished:'已完结'};
-var OLD_LS_KEY='wb_ops_data'; // 旧版（浏览器存储版）数据，用于迁移
+function copyText(txt){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){toast('已复制，可粘贴到微信 / 邮件');},function(){fallbackCopy(txt);});
+  }else{fallbackCopy(txt);}
+}
+function fallbackCopy(txt){
+  var ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');toast('已复制，可粘贴到微信 / 邮件');}catch(e){toast('复制失败，请手动全选复制');}
+  ta.remove();
+}
+function fsApiOk(){return !!window.showDirectoryPicker;} /* [重构] 浏览器能力判断原本重复 3 处 */
 
-/* ======================= 状态 ======================= */
+/* ======================= 3. 轻量 Markdown 渲染 ======================= */
+/* 零依赖，覆盖常见语法：标题/加粗/斜体/行内码/代码块/列表/引用/链接/分隔线 */
+function mdInline(s){
+  s=s.replace(/`([^`]+)`/g,function(m,c){return '<code>'+c+'</code>';});
+  s=s.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  s=s.replace(/\*([^*\s][^*]*)\*/g,'<i>$1</i>');
+  s=s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return s;
+}
+function mdRender(src){
+  var lines=String(src||'').replace(/\r\n?/g,'\n').split('\n');
+  var out=[],inCode=false,codeBuf=[],listType='';
+  function escHtml(x){return String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function closeList(){if(listType){out.push('</'+listType+'>');listType='';}}
+  function closeCode(){out.push('<pre><code>'+escHtml(codeBuf.join('\n'))+'</code></pre>');codeBuf=[];inCode=false;}
+  for(var i=0;i<lines.length;i++){
+    var L=lines[i],t=L.trim(),m;
+    if(/^(```|~~~)/.test(t)){
+      if(inCode)closeCode();else{closeList();inCode=true;}
+      continue;
+    }
+    if(inCode){codeBuf.push(L);continue;}
+    if(!t){closeList();continue;}
+    if((m=t.match(/^(#{1,4})\s+(.*)$/))){closeList();var lv=Math.min(m[1].length+3,6);out.push('<h'+lv+'>'+mdInline(escHtml(m[2]))+'</h'+lv+'>');continue;}
+    if(/^(-{3,}|\*{3,}|_{3,})$/.test(t)){closeList();out.push('<hr>');continue;}
+    if((m=t.match(/^>\s?(.*)$/))){closeList();out.push('<blockquote>'+mdInline(escHtml(m[1]))+'</blockquote>');continue;}
+    if((m=t.match(/^[-*+]\s+(.*)$/))){if(listType!=='ul'){closeList();out.push('<ul>');listType='ul';}out.push('<li>'+mdInline(escHtml(m[1]))+'</li>');continue;}
+    if((m=t.match(/^\d+[.、)]\s+(.*)$/))){if(listType!=='ol'){closeList();out.push('<ol>');listType='ol';}out.push('<li>'+mdInline(escHtml(m[1]))+'</li>');continue;}
+    closeList();
+    out.push('<p>'+mdInline(escHtml(t))+'</p>');
+  }
+  if(inCode)closeCode();
+  closeList();
+  return out.join('');
+}
+
+/* ======================= 4. 全局状态 ======================= */
 var projects=[],tasks=[],reviews=[],knows=[],meta={sample:false};
 var currentTaskId=null,currentProjId=null,currentKnowId=null;
 var reviewBase=todayStr(),weekBase=todayStr(),monthBase=todayStr(),calBase=todayStr(),dayBase=todayStr();
 var knowFilterTag='',knowOpen={},lastBackupTs=0;
 var dirHandle=null,hasStoredHandle=false;
 var saveTimer=null,saveChain=Promise.resolve();
-var urlCache={}; // 附件 objectURL 缓存
+var urlCache={}; // 附件 objectURL 缓存（key=附件 id）
 
-/* ======================= 句柄持久化（IndexedDB，仅存目录"指针"） ======================= */
+/* ======================= 5. 目录句柄持久化（IndexedDB，仅存目录"指针"） ======================= */
 function openHandleDB(){return new Promise(function(res,rej){
   var r=indexedDB.open('wb_ops_dirhandle',1);
   r.onupgradeneeded=function(e){var db=e.target.result;if(!db.objectStoreNames.contains('handles'))db.createObjectStore('handles',{keyPath:'k'});};
@@ -832,11 +908,11 @@ function loadHandle(){return openHandleDB().then(function(db){return new Promise
     rq.onsuccess=function(){res(rq.result?rq.result.h:null);};
     rq.onerror=function(){res(null);};
   }catch(e){res(null);}
-});});}
+});}).catch(function(){return null;});} /* [FIX] IndexedDB 被禁用/打开失败时原先会向外抛未捕获的 Promise 拒绝（boot/connectStored 均未 catch），统一吞掉按"无句柄"处理 */
 
-/* ======================= 连接流程 ======================= */
+/* ======================= 6. 工作目录连接流程 ======================= */
 async function pickDir(){
-  if(!window.showDirectoryPicker){toast('当前浏览器不支持本地目录读写，请用 Chrome / Edge');return;}
+  if(!fsApiOk()){toast('当前浏览器不支持本地目录读写，请用 Chrome / Edge');return;}
   try{
     var h=await window.showDirectoryPicker({mode:'readwrite',id:'ops_workspace'});
     dirHandle=h;
@@ -857,6 +933,7 @@ async function connectStored(){
   }catch(e){toast('连接失败：'+(e.message||e.name));}
 }
 async function connectFinish(){
+  releaseAllAttUrls(); /* [FIX] 更换/重连工作目录时原先不清理 urlCache：旧目录的 objectURL 既泄漏内存，同 id 附件还可能显示旧目录的图 */
   await ensureDirStruct();
   await initData();
   closeLock();
@@ -883,13 +960,13 @@ function openLock(switching){
   $('lockPickBtn').textContent=switching?'选择新的工作目录':'选择工作目录';
   $('lockReconnectBtn').style.display=hasStoredHandle?'':'none';
   $('lockCloseBtn').style.display=switching?'':'none';
-  $('lockSupport').style.display=window.showDirectoryPicker?'none':'block';
+  $('lockSupport').style.display=fsApiOk()?'none':'block';
   $('lockProto').style.display=(location.protocol==='file:')?'block':'none';
   $('lockMask').classList.add('show');
 }
 function closeLock(){$('lockMask').classList.remove('show');}
 
-/* ======================= 数据读写（真实文件） ======================= */
+/* ======================= 7. 数据读写（真实文件）/ 自动备份 / 规范化 / 旧版迁移 ======================= */
 async function readDataFile(){
   try{
     var fh=await dirHandle.getFileHandle('data.json');
@@ -922,35 +999,60 @@ async function maybeAutoBackup(txt){
     await w.write(new Blob([txt],{type:'application/json'}));
     await w.close();
     lastBackupTs=now;
-    var names=[];
-    for await (var en of dh.keys()){if(en.indexOf('data_')===0)names.push(en);}
-    names.sort().reverse();
+    var names=await listBackupNames(true);
     for(var i=10;i<names.length;i++){try{await dh.removeEntry(names[i]);}catch(e){}}
   }catch(e){}
+}
+/* [重构] 枚举 backups/ 下快照并按时间倒序：自动备份清理与恢复弹窗原先各写一份相同循环 */
+async function listBackupNames(create){
+  var dh=await dirHandle.getDirectoryHandle('backups',{create:!!create});
+  var names=[];
+  for await (var en of dh.keys()){if(en.indexOf('data_')===0)names.push(en);}
+  names.sort().reverse();
+  return names;
 }
 function persist(){
   if(!dirHandle)return; // 未连接目录时不落盘
   clearTimeout(saveTimer);
   saveTimer=setTimeout(function(){
-    saveChain=saveChain.then(writeDataNow); // 串行写队列，避免并发写坏文件
+    /* [FIX] 原先 saveChain=saveChain.then(writeDataNow)：writeDataNow 内部虽全量 try/catch，
+       但一旦未来有未预期 rejection，整条串行写队列会被永久"毒化"，之后所有保存静默失效；
+       追加 catch 使队列自愈。写入串行语义不变。 */
+    saveChain=saveChain.then(writeDataNow).catch(function(){});
   },300);
+}
+/* [重构] 数据规范化：原先在「初始化 / 旧版迁移 / 备份恢复 / 导入恢复」四处复制粘贴同一段兜底逻辑，
+   现统一入口。仅做字段兜底，不改动任何合法数据的内容。 */
+function normalizeData(d){
+  projects=d.projects||[];tasks=d.tasks||[];reviews=d.reviews||[];knows=d.knows||[];meta=d.meta||{sample:false};
+  projects.forEach(function(p){
+    if(!p.status)p.status='active'; /* [FIX] 缺状态的项目原先渲染出 "undefined" 徽章 */
+  });
+  tasks.forEach(function(t){
+    t.atts=t.atts||[];
+    if(!t.solutions){
+      t.solutions=t.solution?[{id:uid(),content:t.solution,createdAt:t.updatedAt||t.date}]:[];
+    }else{
+      t.solutions=t.solutions.map(function(s){return s.id?s:{id:uid(),content:s.content||s,createdAt:s.createdAt||t.updatedAt||t.date};});
+    }
+    /* [FIX] 缺日期/状态/优先级的脏数据原先会让排序、日历、周期统计产出 NaN 或渲染 undefined */
+    if(!t.date)t.date=t.createdAt||todayStr();
+    if(!t.status)t.status='todo';
+    if(!t.priority)t.priority='P2';
+  });
+  reviews.forEach(function(r){r.atts=r.atts||[];if(!r.date)r.date=r.createdAt||todayStr();});
+  knows.forEach(function(k){k.tags=k.tags||[];if(!k.date)k.date=k.createdAt||todayStr();});
 }
 async function initData(){
   var d=await readDataFile();
-  if(d){
-    projects=d.projects||[];tasks=d.tasks||[];reviews=d.reviews||[];knows=d.knows||[];meta=d.meta||{sample:false};
-    tasks.forEach(function(t){t.atts=t.atts||[]; if(!t.solutions){t.solutions=t.solution?[{id:uid(),content:t.solution,createdAt:t.updatedAt||t.date}]:[];}else{t.solutions=t.solutions.map(function(s){return s.id?s:{id:uid(),content:s.content||s,createdAt:s.createdAt||t.updatedAt||t.date};});}});
-    reviews.forEach(function(r){r.atts=r.atts||[];});
-    knows.forEach(function(k){k.tags=k.tags||[];});
-    return;
-  }
+  if(d){normalizeData(d);return;}
   /* 空目录：尝试迁移旧版（浏览器存储版）数据 */
   var migrated=await migrateOldVersion();
   if(!migrated)seedSample();
   persist();
 }
 
-/* ======================= 旧版数据迁移 ======================= */
+/* ---- 旧版数据迁移 ---- */
 function readOldFilesDB(){return new Promise(function(res){
   try{
     var r=indexedDB.open('wb_ops_files',1);
@@ -972,7 +1074,9 @@ async function migrateOldVersion(){
   if(!raw)return false;
   try{
     var d=JSON.parse(raw);
-    projects=d.projects||[];tasks=d.tasks||[];reviews=[];knows=[];
+    normalizeData(d);
+    /* 保持原迁移范围：旧版仅迁移项目 / 任务 / 任务附件，复盘与知识点不迁（原逻辑如此，勿改） */
+    reviews=[];knows=[];
     meta={sample:false};
     var files=await readOldFilesDB();
     for(var i=0;i<files.length;i++){
@@ -985,13 +1089,12 @@ async function migrateOldVersion(){
         t.atts.push({id:uid(),slot:f.slot,name:f.name,size:f.size||blob.size,isImg:!!f.isImg,file:path,ts:f.ts||Date.now()});
       }catch(e){}
     }
-    tasks.forEach(function(t){t.atts=t.atts||[]; if(!t.solutions){t.solutions=t.solution?[{id:uid(),content:t.solution,createdAt:t.updatedAt||t.date}]:[];}});
     toast('已将旧版浏览器数据迁移到本地工作目录（原数据保留未动）');
     return true;
   }catch(e){return false;}
 }
 
-/* ======================= 附件文件操作 ======================= */
+/* ======================= 8. 附件模块（写/删/读、URL 缓存、压缩、上传、渲染） ======================= */
 function safeName(n){return String(n).replace(/[\\\/:*?"<>|]/g,'_').slice(-80)||'file';}
 async function writeAttFile(blob,taskId,slot,origName){
   var fname=taskId+'_'+slot+'_'+Date.now()+'_'+safeName(origName);
@@ -1022,6 +1125,10 @@ async function getAttUrl(att){
   urlCache[att.id]=u;
   return u;
 }
+/* [重构] objectURL 释放原先散落且不完整（delAtt / deleteReview 各写一份，删除任务/项目/清空/导入只清 map 不 revoke） */
+function releaseAttUrl(id){if(urlCache[id]){URL.revokeObjectURL(urlCache[id]);delete urlCache[id];}}
+function releaseAllAttUrls(){for(var id in urlCache)releaseAttUrl(id);}
+function releaseOwnerUrls(owner){(owner.atts||[]).forEach(function(a){releaseAttUrl(a.id);});} /* [FIX] 删除任务/项目/示例数据时原先从不释放其附件 URL，造成内存泄漏 */
 function compressImage(file){
   return new Promise(function(res){
     var img=new Image();
@@ -1033,74 +1140,83 @@ function compressImage(file){
       var c=document.createElement('canvas');c.width=w;c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
       URL.revokeObjectURL(url);
-      c.toBlob(function(b){res(b);},'image/jpeg',0.85);
+      c.toBlob(function(b){res(b||null);},'image/jpeg',0.85); /* [FIX] toBlob 极端情况下回调参数为 null，原先会把 null 当 blob 写入 */
     };
     img.onerror=function(){URL.revokeObjectURL(url);res(null);};
     img.src=url;
   });
 }
-async function handleFiles(fileList,slot){
-  if(!currentTaskId){toast('请先保存任务基本信息，再上传附件');return;}
-  if(!dirHandle){toast('请先连接工作目录');return;}
+/* [重构] 通用上传流程：任务附件 / 方案附件 / 复盘附件原先在 handleFiles 与 handleRevFiles 里
+   各有一份几乎相同的循环（15MB 限制、图片压缩、图片 9 张上限、写文件、异常提示），现合并。
+   差异通过 opt 参数化：limitImg=是否限制图片数；imgLimitMsg=超限提示文案。 */
+async function uploadFiles(fileList,owner,slot,opt){
   var files=Array.prototype.slice.call(fileList);
-  var t=taskById(currentTaskId);if(!t)return;
-  var imgCount=t.atts.filter(function(a){return a.slot===slot&&a.isImg;}).length;
+  var imgCount=(owner.atts||[]).filter(function(a){return a.slot===slot&&a.isImg;}).length;
   for(var i=0;i<files.length;i++){
     var f=files[i];
     if(f.size>15*1048576){toast('「'+f.name+'」超过 15MB，跳过');continue;}
     var isImg=/^image\//.test(f.type);
     if(isImg){
       imgCount++;
-      if(slot==='task'&&imgCount>9){toast('任务图片最多 9 张');imgCount--;continue;}
+      if(opt.limitImg&&imgCount>9){toast(opt.imgLimitMsg);imgCount--;continue;}
     }
     var blob=f;
     if(isImg){var comp=await compressImage(f);if(comp)blob=comp;}
     try{
-      var path=await writeAttFile(blob,t.id,slot,f.name);
-      t.atts.push({id:uid(),slot:slot,name:f.name,size:blob.size,isImg:isImg,file:path,ts:Date.now()});
+      var path=await writeAttFile(blob,owner.id,slot,f.name);
+      owner.atts.push({id:uid(),slot:slot,name:f.name,size:blob.size,isImg:isImg,file:path,ts:Date.now()});
     }catch(e){toast('写入附件失败：'+(e.message||e.name));}
   }
+}
+async function handleFiles(fileList,slot){
+  if(!currentTaskId){toast('请先保存任务基本信息，再上传附件');return;}
+  if(!dirHandle){toast('请先连接工作目录');return;}
+  var t=taskById(currentTaskId);if(!t)return;
+  await uploadFiles(fileList,t,slot,{limitImg:slot==='task',imgLimitMsg:'任务图片最多 9 张'});
   persist();renderAttachments();renderAll();toast('附件已保存到工作目录');
+}
+/* [重构] 附件卡片 HTML 与缩略图填充：任务附件区与复盘附件区原先各维护一份 90 行的近似实现，现合并；
+   dataAttr 用于区分两处容器的 data-* 属性名（att / ratt），生成的 DOM 与原先逐字符一致（另加 lazy 解码提示属性）。 */
+function attCardHtml(a,dataAttr){
+  if(a.isImg){
+    return '<div class="att-img" data-'+dataAttr+'="'+a.id+'"><img alt="'+esc(a.name)+'" loading="lazy" decoding="async" data-src-'+dataAttr+'="'+a.id+'">'
+      +'<button class="del" onclick="delAtt(\''+a.id+'\',event)" aria-label="删除">'+ICON.imgDel+'</button></div>';
+  }
+  return '<div class="att-file">'
+    +ICON.attFile
+    +'<span class="fname" title="'+esc(a.name)+'">'+esc(a.name)+'</span>'
+    +'<span class="fsize">'+fmtSize(a.size)+'</span>'
+    +'<button class="btn btn-icon" onclick="downloadAtt(\''+a.id+'\')" aria-label="另存为">'+ICON.download+'</button>'
+    +'<button class="btn btn-icon" onclick="delAtt(\''+a.id+'\',event)" aria-label="删除" style="color:var(--red)">'+ICON.trash+'</button>'
+    +'</div>';
+}
+function mountAttList(box,list,dataAttr){
+  if(!list.length){box.innerHTML='';return;}
+  var h='';
+  list.forEach(function(a){h+=attCardHtml(a,dataAttr);});
+  box.innerHTML=h;
+  /* 异步填充图片缩略图 */
+  box.querySelectorAll('img[data-src-'+dataAttr+']').forEach(function(img){
+    var aid=img.getAttribute('data-src-'+dataAttr);
+    var att=list.find(function(a){return a.id===aid;});
+    /* [FIX] 附件文件缺失/读取失败时原先产生未捕获的 Promise 拒绝 */
+    if(att)getAttUrl(att).then(function(u){img.src=u;}).catch(function(){});
+  });
+  box.querySelectorAll('.att-img[data-'+dataAttr+']').forEach(function(cell){
+    cell.onclick=function(ev){
+      if(ev.target.closest('.del'))return;
+      var aid=cell.getAttribute('data-'+dataAttr);
+      var att=list.find(function(a){return a.id===aid;});
+      if(att)getAttUrl(att).then(function(u){$('imgPreviewEl').src=u;$('imgPreview').classList.add('show');}).catch(function(){}); /* [FIX] 同上 */
+    };
+  });
 }
 async function renderAttachments(){
   if(!currentTaskId)return;
   var t=taskById(currentTaskId);if(!t)return;
   ['task','sol'].forEach(function(slot){
     var list=t.atts.filter(function(a){return a.slot===slot;});
-    var box=$(slot==='task'?'attTaskList':'attSolList');
-    if(!list.length){box.innerHTML='';return;}
-    var h='';
-    list.forEach(function(a){
-      if(a.isImg){
-        h+='<div class="att-img" data-att="'+a.id+'"><img alt="'+esc(a.name)+'" data-src-att="'+a.id+'">'
-          +'<button class="del" onclick="delAtt(\''+a.id+'\',event)" aria-label="删除"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></button></div>';
-      }else{
-        h+='<div class="att-file">'
-          +'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="color:var(--primary);flex:none"><path d="M14 3v5h5M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'
-          +'<span class="fname" title="'+esc(a.name)+'">'+esc(a.name)+'</span>'
-          +'<span class="fsize">'+fmtSize(a.size)+'</span>'
-          +'<button class="btn btn-icon" onclick="downloadAtt(\''+a.id+'\')" aria-label="另存为"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
-          +'<button class="btn btn-icon" onclick="delAtt(\''+a.id+'\',event)" aria-label="删除" style="color:var(--red)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m3 0l-1 13a2 2 0 01-2 2H9a2 2 0 01-2-2L6 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
-          +'</div>';
-      }
-    });
-    box.innerHTML=h;
-    /* 异步填充图片缩略图 */
-    var imgs=box.querySelectorAll('img[data-src-att]');
-    imgs.forEach(function(img){
-      var aid=img.getAttribute('data-src-att');
-      var att=t.atts.find(function(a){return a.id===aid;});
-      if(att)getAttUrl(att).then(function(u){img.src=u;});
-    });
-    var cells=box.querySelectorAll('.att-img[data-att]');
-    cells.forEach(function(cell){
-      cell.onclick=function(ev){
-        if(ev.target.closest('.del'))return;
-        var aid=cell.getAttribute('data-att');
-        var att=t.atts.find(function(a){return a.id===aid;});
-        if(att)getAttUrl(att).then(function(u){$('imgPreviewEl').src=u;$('imgPreview').classList.add('show');});
-      };
-    });
+    mountAttList($(slot==='task'?'attTaskList':'attSolList'),list,'att');
   });
 }
 function findAtt(id){
@@ -1115,7 +1231,7 @@ function delAtt(id,ev){
   if(ev)ev.stopPropagation();
   var f=findAtt(id);if(!f)return;
   f.task.atts=f.task.atts.filter(function(a){return a.id!==id;});
-  if(urlCache[id]){URL.revokeObjectURL(urlCache[id]);delete urlCache[id];}
+  releaseAttUrl(id);
   removeAttFile(f.att.file);
   persist();renderAttachments();renderAll();toast('附件已删除');
 }
@@ -1124,10 +1240,10 @@ function downloadAtt(id){
   getAttUrl(f.att).then(function(u){
     var a=document.createElement('a');a.href=u;a.download=f.att.name;
     document.body.appendChild(a);a.click();a.remove();
-  });
+  }).catch(function(){toast('附件文件不存在或读取失败');}); /* [FIX] 原先文件缺失时静默产生未捕获拒绝，用户点了没任何反馈 */
 }
 
-/* ======================= 示例数据 ======================= */
+/* ======================= 9. 示例数据 ======================= */
 function seedSample(){
   var t=todayStr(),y=addDays(t,-1),t2=addDays(t,2);
   projects=[
@@ -1165,6 +1281,7 @@ function clearSample(){
     reviews=reviews.filter(function(r){return r.id.indexOf('sp-')!==0;});
     knows=knows.filter(function(k){return k.id.indexOf('sp-')!==0;});
     meta.sample=false;
+    delTasks.forEach(releaseOwnerUrls);delRevs.forEach(releaseOwnerUrls); /* [FIX] 释放将被删除附件的 objectURL */
     for(var i=0;i<delTasks.length;i++){
       var ats=delTasks[i].atts||[];
       for(var j=0;j<ats.length;j++)await removeAttFile(ats[j].file);
@@ -1177,8 +1294,16 @@ function clearSample(){
   });
 }
 
-/* ======================= 项目 ======================= */
+/* ======================= 10. 任务/项目查询与项目模块 ======================= */
+function taskById(id){for(var i=0;i<tasks.length;i++)if(tasks[i].id===id)return tasks[i];return null;}
 function projById(id){for(var i=0;i<projects.length;i++)if(projects[i].id===id)return projects[i];return null;}
+function projName(id){var p=projById(id);return p?p.name:'（已删除项目）';}
+/* [重构] 「项目 → 任务数/完成数/完成率」原先在项目卡片、统计页、复制统计文本三处重复计算，现统一 */
+function projectTaskStats(p){
+  var mine=tasks.filter(function(x){return x.projectId===p.id;});
+  var dn=mine.filter(function(x){return x.status==='done';}).length;
+  return {mine:mine,done:dn,pct:mine.length?Math.round(dn*100/mine.length):0};
+}
 function projTagHtml(p){
   if(!p)return '<span class="proj-tag paused"><span class="dot"></span>未知项目</span>';
   var cls=p.status==='active'?'':(p.status==='finished'?'finished':'paused');
@@ -1188,17 +1313,15 @@ function renderProjects(){
   $('projCnt').textContent='共 '+projects.length+' 个';
   var h='';
   projects.forEach(function(p){
-    var mine=tasks.filter(function(t){return t.projectId===p.id;});
-    var done=mine.filter(function(t){return t.status==='done';}).length;
-    var doing=mine.length-done;
+    var st=projectTaskStats(p);
     h+='<div class="proj-card">'
       +'<div class="pc-name">'+esc(p.name)+'</div>'
       +'<div><span class="badge '+(p.status==='active'?'st-doing':(p.status==='finished'?'st-done':'st-todo'))+'">'+PROJ_S[p.status]+'</span></div>'
       +(p.note?'<div class="pc-note">'+esc(p.note)+'</div>':'')
       +'<div class="proj-stats">'
-      +'<span class="stat-chip">任务 <b>'+mine.length+'</b></span>'
-      +'<span class="stat-chip ok">已完成 <b>'+done+'</b></span>'
-      +'<span class="stat-chip">未完成 <b>'+doing+'</b></span>'
+      +'<span class="stat-chip">任务 <b>'+st.mine.length+'</b></span>'
+      +'<span class="stat-chip ok">已完成 <b>'+st.done+'</b></span>'
+      +'<span class="stat-chip">未完成 <b>'+(st.mine.length-st.done)+'</b></span>'
       +'</div>'
       +'<div class="pc-actions">'
       +'<button class="btn btn-sm" onclick="openProjectModal(\''+p.id+'\')">编辑</button>'
@@ -1223,6 +1346,7 @@ function saveProject(){
   if(!name){toast('请填写项目名称');return;}
   if(currentProjId){
     var p=projById(currentProjId);
+    if(!p){toast('项目不存在，请刷新列表后重试');closeProjModal();return;} /* [FIX] 弹窗打开期间项目被删时原先直接抛 TypeError */
     p.name=name;p.status=$('pmStatus').value;p.note=$('pmNote').value.trim();
   }else{
     projects.push({id:uid(),name:name,status:$('pmStatus').value,note:$('pmNote').value.trim(),createdAt:todayStr()});
@@ -1238,6 +1362,7 @@ function deleteProjectFromModal(){
     projects=projects.filter(function(x){return x.id!==p.id;});
     tasks=tasks.filter(function(t){return t.projectId!==p.id;});
     persist();
+    mine.forEach(releaseOwnerUrls); /* [FIX] 释放被删任务附件的 objectURL */
     for(var i=0;i<mine.length;i++){
       var ats=mine[i].atts||[];
       for(var j=0;j<ats.length;j++)await removeAttFile(ats[j].file);
@@ -1246,8 +1371,7 @@ function deleteProjectFromModal(){
   });
 }
 
-/* ======================= 任务 ======================= */
-function taskById(id){for(var i=0;i<tasks.length;i++)if(tasks[i].id===id)return tasks[i];return null;}
+/* ======================= 11. 任务列表 / 今日视图 ======================= */
 function attCntHtml(t){return (t.atts&&t.atts.length)?'<span style="display:inline-flex;align-items:center;gap:3px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M21.4 11.1l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l8.5-8.5a3.7 3.7 0 015.2 5.2l-8.5 8.5a1.8 1.8 0 01-2.6-2.6l7.8-7.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'+t.atts.length+' 附件</span>':'';}
 function taskRowHtml(t,overdueDays){
   var p=projById(t.projectId);
@@ -1326,8 +1450,14 @@ function quickDone(id){
   t.status='done';t.updatedAt=todayStr();persist();renderAll();toast('已完成：'+t.title);
 }
 function renderTasks(){
-  $('fProject').innerHTML='<option value="">全部项目</option>'+projects.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>';}).join('');
-  var kw=$('fSearch').value.trim().toLowerCase(),fp=$('fProject').value,fs=$('fStatus').value,fd=$('fDate').value;
+  /* [FIX] 原先第一行就重建 #fProject 的 <option>：onchange 触发时用户刚选中的值先被重置回
+     「全部项目」，导致「按项目筛选」实际从未生效。现先记录再恢复选中值，恢复失败（项目已被删）
+     时回退第一项。 */
+  var fpSel=$('fProject'),prevProj=fpSel.value;
+  fpSel.innerHTML='<option value="">全部项目</option>'+projects.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>';}).join('');
+  if(prevProj)fpSel.value=prevProj;
+  if(fpSel.selectedIndex<0)fpSel.selectedIndex=0;
+  var kw=$('fSearch').value.trim().toLowerCase(),fp=fpSel.value,fs=$('fStatus').value,fd=$('fDate').value;
   var t=todayStr(),ws=weekStart(t);
   var list=tasks.filter(function(x){
     if(fp&&x.projectId!==fp)return false;
@@ -1364,13 +1494,8 @@ function renderTasks(){
   if(!list.length)h='<div class="empty"><svg width="36" height="36" viewBox="0 0 24 24" fill="none"><path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><br>没有符合条件的任务</div>';
   $('taskList').innerHTML=h;
 }
-function projName(id){var p=projById(id);return p?p.name:'（已删除项目）';}
 
-/* ======================= 任务详情弹窗 ======================= */
-function solText(t){
-  if(t.solutions&&t.solutions.length)return t.solutions[t.solutions.length-1].content;
-  return t.solution||'';
-}
+/* ======================= 12. 任务详情弹窗与方案记录 ======================= */
 /* 从方案记录的时间字符串中解析出 YYYY-MM-DD（兼容 2026-08-27 16:00 / 2026/08/27 17:30 / 2026-08-27） */
 function solDateOf(s){
   var m=String((s&&s.createdAt)||'').replace(/\//g,'-').match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
@@ -1390,21 +1515,19 @@ function taskInPeriod(t,ws,we){
 function solsInRange(t,ws,we){
   return (t.solutions||[]).filter(function(s){var d=solDateOf(s);return d&&d>=ws&&d<=we;});
 }
-/* 周报/月报共用的方案输出：优先输出周期内的方案记录（带日期）；否则回退旧版单条方案 */
+/* 周报/月报共用的方案输出：优先输出周期内的方案记录（带日期）；否则回退旧版单条方案。全文输出，不截断 */
 function appendSolutionLines(t,lines,ws,we){
   var ss=solsInRange(t,ws,we);
   if(!ss.length){
     if(t.solution&&t.date>=ws&&t.date<=we){
-      var s0=t.solution.replace(/\s+/g,' ').trim();
-      if(s0.length>90)s0=s0.slice(0,90)+'…';
-      lines.push('   方案：'+s0);
+      var s0=cleanText(t.solution);
+      if(s0)lines.push('   方案：'+s0);
     }
     return;
   }
   ss.forEach(function(s){
-    var x=(s.content||'').replace(/\s+/g,' ').trim();
-    if(x.length>90)x=x.slice(0,90)+'…';
-    lines.push('   方案['+solDateOf(s)+']：'+x);
+    var x=cleanText(s.content);
+    if(x)lines.push('   方案['+solDateOf(s)+']：'+x);
   });
 }
 function renderSolutions(){
@@ -1465,6 +1588,7 @@ function saveTaskBasic(){
   var now=todayStr();
   if(currentTaskId){
     var t=taskById(currentTaskId);
+    if(!t)return; /* [FIX] 任务被删后弹窗仍开着时原先直接抛 TypeError */
     t.title=name;t.projectId=$('tmProject').value;t.date=$('tmDate').value||now;
     t.priority=$('tmPriority').value;t.status=$('tmStatus').value;t.source=$('tmSource').value;
     t.desc=$('tmDesc').value.trim();t.updatedAt=now;
@@ -1482,6 +1606,7 @@ function saveTaskBasic(){
 function saveSolution(){
   if(!currentTaskId){toast('请先保存任务基本信息');return;}
   var t=taskById(currentTaskId);
+  if(!t)return; /* [FIX] 同上，空值保护 */
   var txt=$('tmSolution').value.trim();
   if(!txt){toast('请输入方案内容');return;}
   if(!t.solutions)t.solutions=t.solution?[{id:uid(),content:t.solution,createdAt:t.updatedAt||t.date}]:[];
@@ -1493,6 +1618,7 @@ function saveSolution(){
 function toggleDone(){
   if(!currentTaskId)return;
   var t=taskById(currentTaskId);
+  if(!t)return; /* [FIX] 空值保护 */
   t.status=t.status==='done'?'doing':'done';t.updatedAt=todayStr();
   persist();renderAll();
   $('tmStatus').value=t.status;
@@ -1502,7 +1628,9 @@ function toggleDone(){
 function deleteTaskFromModal(){
   if(!currentTaskId)return;
   var t=taskById(currentTaskId);
+  if(!t)return; /* [FIX] 空值保护（原先 askConfirm 文案拼接就会抛错） */
   askConfirm('删除任务','确定删除任务「'+t.title+'」？其附件文件将一并删除。',async function(){
+    releaseOwnerUrls(t); /* [FIX] 原先只删文件不释放 objectURL 缓存 */
     var ats=t.atts||[];
     tasks=tasks.filter(function(x){return x.id!==currentTaskId;});
     persist();
@@ -1511,13 +1639,12 @@ function deleteTaskFromModal(){
   });
 }
 
-/* ======================= 每日复盘 ======================= */
+/* ======================= 13. 每日复盘 ======================= */
 function reviewById(id){for(var i=0;i<reviews.length;i++)if(reviews[i].id===id)return reviews[i];return null;}
 function reviewByDate(d){for(var i=0;i<reviews.length;i++)if(reviews[i].date===d)return reviews[i];return null;}
 function shiftReviewDay(n){reviewBase=addDays(reviewBase,n);renderReview();}
 function goReviewToday(){reviewBase=todayStr();renderReview();}
 function openReviewByDate(d){reviewBase=d;renderReview();window.scrollTo({top:0,behavior:'smooth'});}
-function revCut(s,n){s=String(s||'').replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n)+'…':s;}
 function renderReview(){
   $('revDate').value=reviewBase;
   var r=reviewByDate(reviewBase);
@@ -1535,10 +1662,8 @@ function genReviewSummary(){
   /* 当日创建，或当日新增过方案记录（跨天续处理的任务也纳入） */
   var mine=tasks.filter(function(t){return taskInPeriod(t,d,d);});
   if(!mine.length){toast('该日期没有任务记录，可直接手动填写');return;}
-  var nDone=mine.filter(function(t){return t.status==='done';}).length;
-  var nDoing=mine.filter(function(t){return t.status==='doing';}).length;
-  var nTodo=mine.length-nDone-nDoing;
-  var lines=['【今日任务总览】共 '+mine.length+' 项：完成 '+nDone+'、进行中 '+nDoing+'、待处理 '+nTodo];
+  var n=statusCounts(mine);
+  var lines=['【今日任务总览】共 '+mine.length+' 项：完成 '+n.done+'、进行中 '+n.doing+'、待处理 '+n.todo];
   mine.sort(function(a,b){return a.createdAt<b.createdAt?-1:1;}).forEach(function(t,i){
     var mark=t.date!==d?'（'+t.date+' 创建，当日续处理）':'';
     lines.push((i+1)+'. ['+S_NAME[t.status]+'] '+t.title+'（'+projName(t.projectId)+'）'+mark);
@@ -1568,10 +1693,8 @@ function deleteReview(){
   askConfirm('删除复盘','确定删除 '+r.date+' 的复盘记录？其附件文件将一并删除。',async function(){
     reviews=reviews.filter(function(x){return x.id!==r.id;});
     var ats=r.atts||[];
-    for(var i=0;i<ats.length;i++){
-      if(urlCache[ats[i].id]){URL.revokeObjectURL(urlCache[ats[i].id]);delete urlCache[ats[i].id];}
-      await removeAttFile(ats[i].file);
-    }
+    ats.forEach(function(a){releaseAttUrl(a.id);}); /* [重构] 原先此处内联了一份 revoke+delete，与 delAtt 重复 */
+    for(var i=0;i<ats.length;i++)await removeAttFile(ats[i].file);
     persist();renderReview();toast('复盘已删除');
   });
 }
@@ -1605,124 +1728,42 @@ function copyReviewText(){
   if(fee){lines.push('四、每日总结');lines.push(fee);}
   copyText(lines.join('\n'));
 }
-function copyText(txt){
-  if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(txt).then(function(){toast('已复制，可粘贴到微信 / 邮件');},function(){fallbackCopy(txt);});
-  }else{fallbackCopy(txt);}
-}
 /* ---- 复盘附件（真实文件，存 attachments/） ---- */
 async function handleRevFiles(fileList){
   if(!requireDir())return;
   var r=reviewByDate($('revDate').value||todayStr());
   if(!r){toast('请先点击「保存复盘」创建本日复盘，再上传附件');return;}
   r.atts=r.atts||[];
-  var files=Array.prototype.slice.call(fileList);
-  var imgCount=r.atts.filter(function(a){return a.isImg;}).length;
-  for(var i=0;i<files.length;i++){
-    var f=files[i];
-    if(f.size>15*1048576){toast('「'+f.name+'」超过 15MB，跳过');continue;}
-    var isImg=/^image\//.test(f.type);
-    if(isImg){
-      imgCount++;
-      if(imgCount>9){toast('复盘图片最多 9 张');imgCount--;continue;}
-    }
-    var blob=f;
-    if(isImg){var comp=await compressImage(f);if(comp)blob=comp;}
-    try{
-      var path=await writeAttFile(blob,r.id,'rev',f.name);
-      r.atts.push({id:uid(),slot:'rev',name:f.name,size:blob.size,isImg:isImg,file:path,ts:Date.now()});
-    }catch(e){toast('写入附件失败：'+(e.message||e.name));}
-  }
+  await uploadFiles(fileList,r,'rev',{limitImg:true,imgLimitMsg:'复盘图片最多 9 张'});
   persist();renderRevAtts();renderReviewList();toast('附件已保存到工作目录');
 }
 function renderRevAtts(){
   var box=$('attRevList');if(!box)return;
   var r=reviewByDate($('revDate').value||reviewBase);
-  var list=r?(r.atts||[]):[];
-  if(!list.length){box.innerHTML='';return;}
-  var h='';
-  list.forEach(function(a){
-    if(a.isImg){
-      h+='<div class="att-img" data-ratt="'+a.id+'"><img alt="'+esc(a.name)+'" data-src-ratt="'+a.id+'">'
-        +'<button class="del" onclick="delAtt(\''+a.id+'\',event)" aria-label="删除"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg></button></div>';
-    }else{
-      h+='<div class="att-file">'
-        +'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="color:var(--primary);flex:none"><path d="M14 3v5h5M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'
-        +'<span class="fname" title="'+esc(a.name)+'">'+esc(a.name)+'</span>'
-        +'<span class="fsize">'+fmtSize(a.size)+'</span>'
-        +'<button class="btn btn-icon" onclick="downloadAtt(\''+a.id+'\')" aria-label="另存为"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
-        +'<button class="btn btn-icon" onclick="delAtt(\''+a.id+'\',event)" aria-label="删除" style="color:var(--red)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m3 0l-1 13a2 2 0 01-2 2H9a2 2 0 01-2-2L6 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'
-        +'</div>';
-    }
-  });
-  box.innerHTML=h;
-  var imgs=box.querySelectorAll('img[data-src-ratt]');
-  imgs.forEach(function(img){
-    var aid=img.getAttribute('data-src-ratt');
-    var att=list.find(function(x){return x.id===aid;});
-    if(att)getAttUrl(att).then(function(u){img.src=u;});
-  });
-  var cells=box.querySelectorAll('.att-img[data-ratt]');
-  cells.forEach(function(cell){
-    cell.onclick=function(ev){
-      if(ev.target.closest('.del'))return;
-      var aid=cell.getAttribute('data-ratt');
-      var att=list.find(function(x){return x.id===aid;});
-      if(att)getAttUrl(att).then(function(u){$('imgPreviewEl').src=u;$('imgPreview').classList.add('show');});
-    };
-  });
+  mountAttList(box,r?(r.atts||[]):[],'ratt');
 }
-$('revFile').onchange=function(e){handleRevFiles(e.target.files);e.target.value='';};
 
-/* ======================= 知识库（打标签 + 检索） ======================= */
+/* ======================= 14. 知识库（打标签 + 检索） ======================= */
 function knowById(id){for(var i=0;i<knows.length;i++)if(knows[i].id===id)return knows[i];return null;}
-/* ---- 轻量 Markdown 渲染（零依赖，覆盖常见语法：标题/加粗/斜体/行内码/代码块/列表/引用/链接/分隔线） ---- */
-function mdInline(s){
-  s=s.replace(/`([^`]+)`/g,function(m,c){return '<code>'+c+'</code>';});
-  s=s.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
-  s=s.replace(/\*([^*\s][^*]*)\*/g,'<i>$1</i>');
-  s=s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
-  return s;
-}
-function mdRender(src){
-  var lines=String(src||'').replace(/\r\n?/g,'\n').split('\n');
-  var out=[],inCode=false,codeBuf=[],listType='';
-  function escHtml(x){return String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-  function closeList(){if(listType){out.push('</'+listType+'>');listType='';}}
-  function closeCode(){out.push('<pre><code>'+escHtml(codeBuf.join('\n'))+'</code></pre>');codeBuf=[];inCode=false;}
-  for(var i=0;i<lines.length;i++){
-    var L=lines[i],t=L.trim(),m;
-    if(/^(```|~~~)/.test(t)){
-      if(inCode)closeCode();else{closeList();inCode=true;}
-      continue;
-    }
-    if(inCode){codeBuf.push(L);continue;}
-    if(!t){closeList();continue;}
-    if((m=t.match(/^(#{1,4})\s+(.*)$/))){closeList();var lv=Math.min(m[1].length+3,6);out.push('<h'+lv+'>'+mdInline(escHtml(m[2]))+'</h'+lv+'>');continue;}
-    if(/^(-{3,}|\*{3,}|_{3,})$/.test(t)){closeList();out.push('<hr>');continue;}
-    if((m=t.match(/^>\s?(.*)$/))){closeList();out.push('<blockquote>'+mdInline(escHtml(m[1]))+'</blockquote>');continue;}
-    if((m=t.match(/^[-*+]\s+(.*)$/))){if(listType!=='ul'){closeList();out.push('<ul>');listType='ul';}out.push('<li>'+mdInline(escHtml(m[1]))+'</li>');continue;}
-    if((m=t.match(/^\d+[.、)]\s+(.*)$/))){if(listType!=='ol'){closeList();out.push('<ol>');listType='ol';}out.push('<li>'+mdInline(escHtml(m[1]))+'</li>');continue;}
-    closeList();
-    out.push('<p>'+mdInline(escHtml(t))+'</p>');
-  }
-  if(inCode)closeCode();
-  closeList();
-  return out.join('');
-}
 function allKnowTags(){
   var set={};
   knows.forEach(function(k){(k.tags||[]).forEach(function(t){set[t]=1;});});
   return Object.keys(set).sort(function(a,b){return a.localeCompare(b,'zh');});
 }
+/* [perf] 标签计数原先对每个标签都全量 filter 一遍知识点（O(标签数×知识点数)），改为一次遍历计数，结果一致 */
+function knowTagCounts(){
+  var map={};
+  knows.forEach(function(k){(k.tags||[]).forEach(function(t){map[t]=(map[t]||0)+1;});});
+  return map;
+}
 function renderKnows(){
   $('knowCnt').textContent='共 '+knows.length+' 条';
   var tags=allKnowTags();
   if(knowFilterTag&&tags.indexOf(knowFilterTag)<0)knowFilterTag='';
+  var counts=knowTagCounts();
   var chips='';
   tags.forEach(function(t,i){
-    var n=knows.filter(function(k){return (k.tags||[]).indexOf(t)>=0;}).length;
-    chips+='<button class="tag-chip'+(knowFilterTag===t?' active':'')+'" onclick="toggleKnowTag('+i+')"># '+esc(t)+' ('+n+')</button>';
+    chips+='<button class="tag-chip'+(knowFilterTag===t?' active':'')+'" onclick="toggleKnowTag('+i+')"># '+esc(t)+' ('+(counts[t]||0)+')</button>';
   });
   $('knowTags').innerHTML=chips;
   var kw=($('knowSearch').value||'').trim().toLowerCase();
@@ -1762,7 +1803,6 @@ function openKnowModal(id){
   $('knowMask').classList.add('show');
 }
 /* 导入 .md / .markdown / .txt 文件为知识点内容 */
-$('kmFile').onchange=function(e){importKnowFiles(e.target.files);e.target.value='';};
 function importKnowFiles(files){
   if(!files||!files.length)return;
   var f=files[0];
@@ -1791,6 +1831,7 @@ function saveKnow(){
   var d=$('kmDate').value||todayStr();
   if(currentKnowId){
     var k=knowById(currentKnowId);
+    if(!k){toast('知识点不存在，请刷新列表后重试');return;} /* [FIX] 编辑期间被删时原先直接抛 TypeError */
     k.content=c;k.tags=tags;k.date=d;k.updatedAt=todayStr();
   }else{
     knows.push({id:uid(),content:c,tags:tags,date:d,createdAt:todayStr(),updatedAt:todayStr()});
@@ -1824,7 +1865,7 @@ function collectKnow(){
   activateTab('know');
 }
 
-/* ======================= .md 导出（写入工作目录 exports/） ======================= */
+/* ======================= 15. 导出 .md（写入工作目录 exports/） ======================= */
 async function writeExportFile(fname,text){
   var dh=await dirHandle.getDirectoryHandle('exports',{create:true});
   var fh=await dh.getFileHandle(fname,{create:true});
@@ -1851,58 +1892,151 @@ async function exportReviewMd(){
   }catch(e){toast('导出失败：'+(e.message||e.name));}
 }
 
-/* ======================= 月报 ======================= */
+/* ======================= 16. 周期统计公共（周报 / 月报 / 复盘生成共用） ======================= */
+/* [重构] done/doing/todo 计数原先用三次 filter（周报、月报、复盘生成、统计共 6 处重复），合并为一次遍历，结果一致 */
+function statusCounts(list){
+  var done=0,doing=0;
+  for(var i=0;i<list.length;i++){
+    if(list[i].status==='done')done++;
+    else if(list[i].status==='doing')doing++;
+  }
+  return {done:done,doing:doing,todo:list.length-done-doing};
+}
+/* [重构] 统计卡片模板原先在周报 / 月报 / 统计页三处以字符串拼接重复 */
+function statCardHtml(cls,num,label){
+  return '<div class="stat-card '+cls+'"><div class="sc-num">'+num+'</div><div class="sc-label">'+label+'</div></div>';
+}
+/* [重构] 周报 / 月报的「按项目分组 → 排序 → 任务行」渲染完全重复，合并为一个函数 */
+function periodProjectSections(list){
+  var t=todayStr(),h='';
+  projects.forEach(function(p){
+    var mine=list.filter(function(x){return x.projectId===p.id;});
+    if(!mine.length)return;
+    h+='<div class="today-section"><h3>'+projTagHtml(p)+'<span class="cnt">'+mine.length+' 项</span></h3>';
+    mine.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(x){
+      h+=taskRowHtml(x,x.status!=='done'&&x.date<t?dayDiff(t,x.date):0);
+    });
+    h+='</div>';
+  });
+  return h;
+}
+/* [重构] 周报 / 月报的「按项目分组任务清单」文本生成完全重复，合并为一个函数；
+   continueLabel 区分「本周继续处理」/「本月继续处理」 */
+function appendPeriodProjectLines(lines,list,ws,we,continueLabel){
+  var idx=0;
+  projects.forEach(function(p){
+    var mine=list.filter(function(t){return t.projectId===p.id;});
+    if(!mine.length)return;
+    idx++;
+    lines.push(''+cn(idx)+'、'+p.name+(p.status==='paused'?'（暂缓）':''));
+    mine.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(t,i){
+      var tag=t.status==='done'?'完成':(t.status==='doing'?'进行中':'待处理');
+      var dLabel=(t.date>=ws&&t.date<=we)?t.date:(t.date+' 创建，'+continueLabel);
+      lines.push((i+1)+'. ['+tag+'] '+t.title+'（'+dLabel+'，'+P_NAME[t.priority]+'）');
+      appendSolutionLines(t,lines,ws,we);
+    });
+    lines.push('');
+  });
+}
+/* [perf] 建立日期→任务索引：原先日历 42 格、统计近 30 天柱状图都对每一天全量 filter 任务
+   （O(天数×任务数)，且每天重复解析方案日期），现一次遍历建索引后查表，输出完全一致 */
+function buildTaskDateIndex(){
+  var map={};
+  tasks.forEach(function(t){
+    var seen={};
+    if(t.date)seen[t.date]=1;
+    (t.solutions||[]).forEach(function(s){var d=solDateOf(s);if(d)seen[d]=1;});
+    for(var d in seen){(map[d]=map[d]||[]).push(t);}
+  });
+  return map;
+}
+
+/* ======================= 17. 周报 ======================= */
+function shiftWeek(n){weekBase=addDays(weekBase,n*7);renderWeekly();}
+function goThisWeek(){weekBase=todayStr();renderWeekly();}
+function renderWeekly(){
+  var ws=weekStart(weekBase),we=addDays(ws,6);
+  $('weekRange').textContent=ws+' ~ '+we+(ws===weekStart(todayStr())?'（本周）':'');
+  var inWeek=tasks.filter(function(t){return taskInPeriod(t,ws,we);});
+  var n=statusCounts(inWeek);
+  $('weekStats').innerHTML=
+    statCardHtml('c-blue',inWeek.length,'本周任务')
+    +statCardHtml('c-green',n.done,'已完成')
+    +statCardHtml('c-orange',n.doing,'进行中')
+    +statCardHtml('c-gray',n.todo,'待处理');
+  var h=periodProjectSections(inWeek);
+  if(!inWeek.length)h='<div class="empty">该周没有任务记录。</div>';
+  $('weekBody').innerHTML=h;
+}
+function buildWeeklyText(){
+  var ws=weekStart(weekBase),we=addDays(ws,6);
+  var inWeek=tasks.filter(function(t){return taskInPeriod(t,ws,we);});
+  if(!inWeek.length){toast('该周没有任务，无法生成');return;}
+  var lines=[];
+  lines.push('【运维工作周报】'+ws+' ~ '+we);
+  lines.push('');
+  appendPeriodProjectLines(lines,inWeek,ws,we,'本周继续处理');
+  var n=statusCounts(inWeek);
+  /* 汇入本周每日复盘要点（疑难点 / 知识点） */
+  var weekRevs=reviews.filter(function(r){return r.date>=ws&&r.date<=we&&(r.issues||r.learned);});
+  if(weekRevs.length){
+    weekRevs.sort(function(a,b){return a.date<b.date?-1:1;});
+    lines.push('');
+    lines.push('◆ 本周每日复盘要点');
+    weekRevs.forEach(function(r){
+      if(r.issues)lines.push('['+r.date+'] 疑难点：'+cleanText(r.issues));
+      if(r.learned)lines.push('['+r.date+'] 知识点：'+cleanText(r.learned));
+      if(r.feelings)lines.push('['+r.date+'] 每日总结：'+cleanText(r.feelings));
+    });
+  }
+  lines.push('——');
+  lines.push('本周统计：共 '+inWeek.length+' 项｜完成 '+n.done+' 项｜进行中 '+n.doing+' 项｜待处理 '+n.todo+' 项');
+  $('weeklyText').value=lines.join('\n');
+  toast('周报文本已生成');
+}
+function copyWeekly(){
+  var txt=$('weeklyText').value;
+  if(!txt){toast('请先生成周报文本');return;}
+  copyText(txt);
+}
+async function exportWeeklyMd(){
+  if(!requireDir())return;
+  var txt=$('weeklyText').value;
+  if(!txt){toast('请先生成周报文本');return;}
+  var ws=weekStart(weekBase),we=addDays(ws,6);
+  try{
+    await writeExportFile('运维周报_'+ws+'_'+we+'.md',txt);
+    toast('已导出到工作目录 exports/运维周报_'+ws+'_'+we+'.md');
+  }catch(e){toast('导出失败：'+(e.message||e.name));}
+}
+
+/* ======================= 18. 月报 ======================= */
 function shiftMonth(n){monthBase=addMonths(monthBase,n);renderMonthly();}
 function goThisMonth(){monthBase=todayStr();renderMonthly();}
 function renderMonthly(){
   var rg=monthRangeOf(monthBase),ym=monthBase.slice(0,7);
   $('monthRange').textContent=ym+(ym===todayStr().slice(0,7)?'（本月）':'');
   var inM=tasks.filter(function(t){return taskInPeriod(t,rg.ws,rg.we);});
-  var nDone=inM.filter(function(t){return t.status==='done';}).length;
-  var nDoing=inM.filter(function(t){return t.status==='doing';}).length;
-  var nTodo=inM.length-nDone-nDoing;
+  var n=statusCounts(inM);
   var mRevs=reviews.filter(function(r){return r.date>=rg.ws&&r.date<=rg.we;});
   $('monthStats').innerHTML=
-    '<div class="stat-card c-blue"><div class="sc-num">'+inM.length+'</div><div class="sc-label">本月任务</div></div>'
-    +'<div class="stat-card c-green"><div class="sc-num">'+nDone+'</div><div class="sc-label">已完成</div></div>'
-    +'<div class="stat-card c-orange"><div class="sc-num">'+nDoing+'</div><div class="sc-label">进行中</div></div>'
-    +'<div class="stat-card c-gray"><div class="sc-num">'+nTodo+'</div><div class="sc-label">待处理</div></div>'
-    +'<div class="stat-card c-blue"><div class="sc-num">'+mRevs.length+'</div><div class="sc-label">复盘天数</div></div>';
-  var h='';
-  projects.forEach(function(p){
-    var mine=inM.filter(function(t){return t.projectId===p.id;});
-    if(!mine.length)return;
-    h+='<div class="today-section"><h3>'+projTagHtml(p)+'<span class="cnt">'+mine.length+' 项</span></h3>';
-    mine.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(t){
-      h+=taskRowHtml(t,t.status!=='done'&&t.date<todayStr()?dayDiff(todayStr(),t.date):0);
-    });
-    h+='</div>';
-  });
+    statCardHtml('c-blue',inM.length,'本月任务')
+    +statCardHtml('c-green',n.done,'已完成')
+    +statCardHtml('c-orange',n.doing,'进行中')
+    +statCardHtml('c-gray',n.todo,'待处理')
+    +statCardHtml('c-blue',mRevs.length,'复盘天数');
+  var h=periodProjectSections(inM);
   if(!inM.length)h='<div class="empty">该月没有任务记录。</div>';
   $('monthBody').innerHTML=h;
 }
 function buildMonthlyText(){
   var rg=monthRangeOf(monthBase),ym=monthBase.slice(0,7);
   var inM=tasks.filter(function(t){return taskInPeriod(t,rg.ws,rg.we);});
+  /* 注意：此处判断的是全部 reviews 而非本月复盘，属于原有逻辑，勿改 */
   if(!inM.length&&!reviews.length){toast('该月没有记录，无法生成');return;}
   var lines=['【运维工作月报】'+ym,''];
-  var idx=0;
-  projects.forEach(function(p){
-    var mine=inM.filter(function(t){return t.projectId===p.id;});
-    if(!mine.length)return;
-    idx++;
-    lines.push(''+cn(idx)+'、'+p.name+(p.status==='paused'?'（暂缓）':''));
-    mine.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(t,i){
-      var tag=t.status==='done'?'完成':(t.status==='doing'?'进行中':'待处理');
-      var dLabel=(t.date>=rg.ws&&t.date<=rg.we)?t.date:(t.date+' 创建，本月继续处理');
-      lines.push((i+1)+'. ['+tag+'] '+t.title+'（'+dLabel+'，'+P_NAME[t.priority]+'）');
-      appendSolutionLines(t,lines,rg.ws,rg.we);
-    });
-    lines.push('');
-  });
-  var nDone=inM.filter(function(t){return t.status==='done';}).length;
-  var nDoing=inM.filter(function(t){return t.status==='doing';}).length;
-  var nTodo=inM.length-nDone-nDoing;
+  appendPeriodProjectLines(lines,inM,rg.ws,rg.we,'本月继续处理');
+  var n=statusCounts(inM);
   /* 本月复盘与知识点沉淀 */
   var mRevs=reviews.filter(function(r){return r.date>=rg.ws&&r.date<=rg.we;});
   var mKnows=knows.filter(function(k){return k.date>=rg.ws&&k.date<=rg.we;});
@@ -1911,16 +2045,16 @@ function buildMonthlyText(){
     lines.push('◆ 本月复盘与知识沉淀');
     lines.push('复盘 '+mRevs.length+' 篇｜新增知识点 '+mKnows.length+' 条');
     mRevs.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(r){
-      if(r.issues)lines.push('['+r.date+'] 疑难点：'+revCut(r.issues,80));
-      if(r.feelings)lines.push('['+r.date+'] 每日总结：'+revCut(r.feelings,60));
+      if(r.issues)lines.push('['+r.date+'] 疑难点：'+cleanText(r.issues));
+      if(r.feelings)lines.push('['+r.date+'] 每日总结：'+cleanText(r.feelings));
     });
     mKnows.slice(0,10).forEach(function(k){
-      lines.push('['+k.date+'] 知识点：'+revCut(k.content,80)+(k.tags&&k.tags.length?'（#'+k.tags.join(' #')+'）':''));
+      lines.push('['+k.date+'] 知识点：'+cleanText(k.content)+(k.tags&&k.tags.length?'（#'+k.tags.join(' #')+'）':''));
     });
     if(mKnows.length>10)lines.push('……等共 '+mKnows.length+' 条，详见工作台「知识库」');
   }
   lines.push('——');
-  lines.push('本月统计：共 '+inM.length+' 项｜完成 '+nDone+' 项｜进行中 '+nDoing+' 项｜待处理 '+nTodo+' 项');
+  lines.push('本月统计：共 '+inM.length+' 项｜完成 '+n.done+' 项｜进行中 '+n.doing+' 项｜待处理 '+n.todo+' 项');
   $('monthlyText').value=lines.join('\n');
   toast('月报文本已生成');
 }
@@ -1939,37 +2073,35 @@ async function exportMonthlyMd(){
   }catch(e){toast('导出失败：'+(e.message||e.name));}
 }
 
-/* ======================= 统计仪表盘 ======================= */
+/* ======================= 19. 统计仪表盘 ======================= */
 function statNumbers(){
   var t=todayStr();
-  var total=tasks.length;
-  var done=tasks.filter(function(x){return x.status==='done';}).length;
-  var doing=tasks.filter(function(x){return x.status==='doing';}).length;
+  var n=statusCounts(tasks);
   var overdue=tasks.filter(function(x){return x.status!=='done'&&x.date<t;}).length;
-  return {total:total,done:done,doing:doing,overdue:overdue,rate:total?Math.round(done*100/total):0};
+  return {total:tasks.length,done:n.done,doing:n.doing,overdue:overdue,rate:tasks.length?Math.round(n.done*100/tasks.length):0};
 }
 function renderStats(){
   var s=statNumbers();
   $('statHint').textContent='· 截至 '+todayStr();
   $('statCards').innerHTML=
-    '<div class="stat-card c-blue"><div class="sc-num">'+s.total+'</div><div class="sc-label">任务总数</div></div>'
-    +'<div class="stat-card c-green"><div class="sc-num">'+s.rate+'%</div><div class="sc-label">总完成率</div></div>'
-    +'<div class="stat-card c-orange"><div class="sc-num">'+s.doing+'</div><div class="sc-label">进行中</div></div>'
-    +'<div class="stat-card c-gray"><div class="sc-num">'+s.overdue+'</div><div class="sc-label">逾期未完成</div></div>'
-    +'<div class="stat-card c-blue"><div class="sc-num">'+reviews.length+'</div><div class="sc-label">复盘篇数</div></div>'
-    +'<div class="stat-card c-green"><div class="sc-num">'+knows.length+'</div><div class="sc-label">知识点条数</div></div>';
+    statCardHtml('c-blue',s.total,'任务总数')
+    +statCardHtml('c-green',s.rate+'%','总完成率')
+    +statCardHtml('c-orange',s.doing,'进行中')
+    +statCardHtml('c-gray',s.overdue,'逾期未完成')
+    +statCardHtml('c-blue',reviews.length,'复盘篇数')
+    +statCardHtml('c-green',knows.length,'知识点条数');
   var h='';
   projects.forEach(function(p){
-    var mine=tasks.filter(function(x){return x.projectId===p.id;});
-    var dn=mine.filter(function(x){return x.status==='done';}).length;
-    var pct=mine.length?Math.round(dn*100/mine.length):0;
-    h+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;gap:8px"><span>'+esc(p.name)+'（'+mine.length+' 项）</span><span style="color:var(--green);font-weight:700;flex:none">'+pct+'%</span></div><div class="progress"><i style="width:'+pct+'%"></i></div></div>';
+    var st=projectTaskStats(p);
+    h+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;gap:8px"><span>'+esc(p.name)+'（'+st.mine.length+' 项）</span><span style="color:var(--green);font-weight:700;flex:none">'+st.pct+'%</span></div><div class="progress"><i style="width:'+st.pct+'%"></i></div></div>';
   });
   $('statProjects').innerHTML=h?'<div class="today-section"><h3>各项目任务完成率</h3>'+h+'</div>':'';
-  var t=todayStr(),counts=[];
+  var t=todayStr();
+  var idx=buildTaskDateIndex();
+  var counts=[];
   for(var i=29;i>=0;i--){
     var d=addDays(t,-i);
-    counts.push({d:d,c:tasks.filter(function(x){return taskInPeriod(x,d,d);}).length});
+    counts.push({d:d,c:(idx[d]||[]).length});
   }
   var mx=1;
   counts.forEach(function(x){if(x.c>mx)mx=x.c;});
@@ -1989,15 +2121,14 @@ function copyStatsText(){
     lines.push('');
     lines.push('—— 各项目 ——');
     projects.forEach(function(p){
-      var mine=tasks.filter(function(x){return x.projectId===p.id;});
-      var dn=mine.filter(function(x){return x.status==='done';}).length;
-      lines.push(p.name+'：'+mine.length+' 项，完成 '+dn+'（'+(mine.length?Math.round(dn*100/mine.length):0)+'%）');
+      var st=projectTaskStats(p);
+      lines.push(p.name+'：'+st.mine.length+' 项，完成 '+st.done+'（'+st.pct+'%）');
     });
   }
   copyText(lines.join('\n'));
 }
 
-/* ======================= 日历视图 ======================= */
+/* ======================= 20. 日历视图 ======================= */
 function shiftCalMonth(n){calBase=addMonths(calBase,n);renderCalendar();}
 function goCalThisMonth(){calBase=todayStr();renderCalendar();}
 function renderCalendar(){
@@ -2006,18 +2137,24 @@ function renderCalendar(){
   var first=ym+'-01';
   var lead=(new Date(first+'T00:00:00').getDay()+6)%7;
   var t=todayStr();
+  /* [perf] 原先 42 个格子 × 每格对任务/复盘/知识点各做一次全量 filter；现预建日期索引后查表，输出完全一致 */
+  var taskIdx=buildTaskDateIndex();
+  var revIdx={};
+  reviews.forEach(function(r){revIdx[r.date]=r;});
+  var knowCnt={};
+  knows.forEach(function(k){knowCnt[k.date]=(knowCnt[k.date]||0)+1;});
   var h='<div class="cal-grid">';
   ['一','二','三','四','五','六','日'].forEach(function(w){h+='<div class="cal-wd">'+w+'</div>';});
   for(var i=0;i<42;i++){
     var d=addDays(first,i-lead);
     var other=d.slice(0,7)!==ym;
-    var mine=tasks.filter(function(x){return taskInPeriod(x,d,d);});
+    var mine=taskIdx[d]||[];
     var undone=mine.filter(function(x){return x.status!=='done';}).length;
-    var r=reviewByDate(d);
-    var kn=knows.filter(function(k){return k.date===d;}).length;
+    var r=revIdx[d];
+    var kn=knowCnt[d]||0;
     h+='<div class="cal-cell'+(other?' other':'')+(d===t?' today':'')+'" onclick="openDayModal(\''+d+'\')">'
       +'<div class="cd">'+(+d.slice(8))+'</div><div class="cv">';
-    if(mine.length)h+='<span class="cal-pill'+(undone&&d<t?' red':(undone?'':''))+'">'+mine.length+' 任务</span>';
+    if(mine.length)h+='<span class="cal-pill'+(undone&&d<t?' red':'')+'">'+mine.length+' 任务</span>';
     if(r)h+='<span class="cal-pill green">复盘</span>';
     if(kn)h+='<span class="cal-pill blue">知 '+kn+'</span>';
     h+='</div></div>';
@@ -2061,15 +2198,12 @@ function openDayModal(d){
 function closeDayModal(){$('dayMask').classList.remove('show');}
 function dayGoReview(){closeDayModal();activateTab('review');openReviewByDate(dayBase);}
 
-/* ======================= 自动备份恢复 ======================= */
+/* ======================= 21. 自动备份恢复 / 单文件备份导入导出 / 清空 ======================= */
 async function openRestore(){
   if(!requireDir())return;
   var h='';
   try{
-    var dh=await dirHandle.getDirectoryHandle('backups');
-    var names=[];
-    for await (var en of dh.keys()){if(en.indexOf('data_')===0)names.push(en);}
-    names.sort().reverse();
+    var names=await listBackupNames(false);
     if(!names.length)h='<div class="empty">还没有自动备份（保存数据约 10 分钟后会自动产生一份）</div>';
     names.forEach(function(n){
       h+='<div class="att-file" style="justify-content:space-between;margin-bottom:8px">'
@@ -2089,137 +2223,37 @@ async function doRestoreBackup(fname){
     var d=JSON.parse(txt);
     if(!d||!Array.isArray(d.projects)||!Array.isArray(d.tasks)){toast('备份文件内容无效');return;}
     askConfirm('恢复备份','将把数据回滚到备份「'+fname+'」时的状态，当前未备份的修改将丢失（附件文件不受影响）。确定恢复？',async function(){
-      projects=d.projects||[];tasks=d.tasks||[];reviews=d.reviews||[];knows=d.knows||[];meta=d.meta||{sample:false};
-      tasks.forEach(function(t){t.atts=t.atts||[]; if(!t.solutions){t.solutions=t.solution?[{id:uid(),content:t.solution,createdAt:t.updatedAt||t.date}]:[];}});
-      reviews.forEach(function(r){r.atts=r.atts||[];});
-      knows.forEach(function(k){k.tags=k.tags||[];});
-      urlCache={};
+      normalizeData(d);
+      releaseAllAttUrls(); /* [FIX] 原先仅 urlCache={} 不 revoke，旧 objectURL 全部泄漏 */
       await writeDataNow();
       $('restoreMask').classList.remove('show');
       renderAll();toast('已从备份 '+fname+' 恢复');
     });
   }catch(e){toast('读取备份失败：'+(e.message||e.name));}
 }
-
-/* ======================= 周报 ======================= */
-function shiftWeek(n){weekBase=addDays(weekBase,n*7);renderWeekly();}
-function goThisWeek(){weekBase=todayStr();renderWeekly();}
-function renderWeekly(){
-  var ws=weekStart(weekBase),we=addDays(ws,6);
-  $('weekRange').textContent=ws+' ~ '+we+(ws===weekStart(todayStr())?'（本周）':'');
-  var inWeek=tasks.filter(function(t){return taskInPeriod(t,ws,we);});
-  var nDone=inWeek.filter(function(t){return t.status==='done';}).length;
-  var nDoing=inWeek.filter(function(t){return t.status==='doing';}).length;
-  var nTodo=inWeek.length-nDone-nDoing;
-  $('weekStats').innerHTML=
-    '<div class="stat-card c-blue"><div class="sc-num">'+inWeek.length+'</div><div class="sc-label">本周任务</div></div>'
-    +'<div class="stat-card c-green"><div class="sc-num">'+nDone+'</div><div class="sc-label">已完成</div></div>'
-    +'<div class="stat-card c-orange"><div class="sc-num">'+nDoing+'</div><div class="sc-label">进行中</div></div>'
-    +'<div class="stat-card c-gray"><div class="sc-num">'+nTodo+'</div><div class="sc-label">待处理</div></div>';
-  var h='';
-  projects.forEach(function(p){
-    var mine=inWeek.filter(function(t){return t.projectId===p.id;});
-    if(!mine.length)return;
-    h+='<div class="today-section"><h3>'+projTagHtml(p)+'<span class="cnt">'+mine.length+' 项</span></h3>';
-    mine.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(t){
-      h+=taskRowHtml(t,t.status!=='done'&&t.date<todayStr()?dayDiff(todayStr(),t.date):0);
-    });
-    h+='</div>';
-  });
-  if(!inWeek.length)h='<div class="empty">该周没有任务记录。</div>';
-  $('weekBody').innerHTML=h;
+/* ---- 单文件 JSON 快照（附件转 base64）导出 ---- */
+/* [重构] 任务附件与复盘附件的 base64 导出循环原先完全重复，合并为一个 helper（分块编码方式与块大小保持不变） */
+async function attToExportRecord(att,ownerId){
+  var f=await getAttFile(att);
+  var buf=await f.arrayBuffer();
+  var bytes=new Uint8Array(buf),bin='',chunk=32768;
+  for(var k=0;k<bytes.length;k+=chunk)bin+=String.fromCharCode.apply(null,bytes.subarray(k,k+chunk));
+  return {id:att.id,taskId:ownerId,slot:att.slot,name:att.name,size:att.size,isImg:att.isImg,b64:btoa(bin)};
 }
-function buildWeeklyText(){
-  var ws=weekStart(weekBase),we=addDays(ws,6);
-  var inWeek=tasks.filter(function(t){return taskInPeriod(t,ws,we);});
-  if(!inWeek.length){toast('该周没有任务，无法生成');return;}
-  var lines=[];
-  lines.push('【运维工作周报】'+ws+' ~ '+we);
-  lines.push('');
-  var idx=0;
-  projects.forEach(function(p){
-    var mine=inWeek.filter(function(t){return t.projectId===p.id;});
-    if(!mine.length)return;
-    idx++;
-    lines.push(''+cn(idx)+'、'+p.name+(p.status==='paused'?'（暂缓）':''));
-    mine.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(t,i){
-      var tag=t.status==='done'?'完成':(t.status==='doing'?'进行中':'待处理');
-      var dLabel=(t.date>=ws&&t.date<=we)?t.date:(t.date+' 创建，本周继续处理');
-      lines.push((i+1)+'. ['+tag+'] '+t.title+'（'+dLabel+'，'+P_NAME[t.priority]+'）');
-      appendSolutionLines(t,lines,ws,we);
-    });
-    lines.push('');
-  });
-  var nDone=inWeek.filter(function(t){return t.status==='done';}).length;
-  var nDoing=inWeek.filter(function(t){return t.status==='doing';}).length;
-  var nTodo=inWeek.length-nDone-nDoing;
-  /* 汇入本周每日复盘要点（疑难点 / 知识点） */
-  var weekRevs=reviews.filter(function(r){return r.date>=ws&&r.date<=we&&(r.issues||r.learned);});
-  if(weekRevs.length){
-    weekRevs.sort(function(a,b){return a.date<b.date?-1:1;});
-    lines.push('');
-    lines.push('◆ 本周每日复盘要点');
-    weekRevs.forEach(function(r){
-      if(r.issues)lines.push('['+r.date+'] 疑难点：'+revCut(r.issues,80));
-      if(r.learned)lines.push('['+r.date+'] 知识点：'+revCut(r.learned,80));
-      if(r.feelings)lines.push('['+r.date+'] 每日总结：'+revCut(r.feelings,60));
-    });
-  }
-  lines.push('——');
-  lines.push('本周统计：共 '+inWeek.length+' 项｜完成 '+nDone+' 项｜进行中 '+nDoing+' 项｜待处理 '+nTodo+' 项');
-  $('weeklyText').value=lines.join('\n');
-  toast('周报文本已生成');
-}
-function cn(n){return ['一','二','三','四','五','六','七','八','九','十'][n-1]||n;}
-function copyWeekly(){
-  var txt=$('weeklyText').value;
-  if(!txt){toast('请先生成周报文本');return;}
-  copyText(txt);
-}
-async function exportWeeklyMd(){
-  if(!requireDir())return;
-  var txt=$('weeklyText').value;
-  if(!txt){toast('请先生成周报文本');return;}
-  var ws=weekStart(weekBase),we=addDays(ws,6);
-  try{
-    await writeExportFile('运维周报_'+ws+'_'+we+'.md',txt);
-    toast('已导出到工作目录 exports/运维周报_'+ws+'_'+we+'.md');
-  }catch(e){toast('导出失败：'+(e.message||e.name));}
-}
-function fallbackCopy(txt){
-  var ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';
-  document.body.appendChild(ta);ta.select();
-  try{document.execCommand('copy');toast('已复制，可粘贴到微信 / 邮件');}catch(e){toast('复制失败，请手动全选复制');}
-  ta.remove();
-}
-
-/* ======================= 备份（单文件 JSON 快照，附件转 base64） / 恢复 / 清空 ======================= */
 async function exportData(){
   if(!requireDir())return;
   var filesArr=[];
   for(var i=0;i<tasks.length;i++){
     var ats=tasks[i].atts||[];
     for(var j=0;j<ats.length;j++){
-      try{
-        var f=await getAttFile(ats[j]);
-        var buf=await f.arrayBuffer();
-        var bin='';var bytes=new Uint8Array(buf);var chunk=32768;
-        for(var k=0;k<bytes.length;k+=chunk)bin+=String.fromCharCode.apply(null,bytes.subarray(k,k+chunk));
-        filesArr.push({id:ats[j].id,taskId:tasks[i].id,slot:ats[j].slot,name:ats[j].name,size:ats[j].size,isImg:ats[j].isImg,b64:btoa(bin)});
-      }catch(e){}
+      try{filesArr.push(await attToExportRecord(ats[j],tasks[i].id));}catch(e){}
     }
   }
   /* 复盘附件一并导出 */
   for(var r=0;r<reviews.length;r++){
     var rats=reviews[r].atts||[];
     for(var s=0;s<rats.length;s++){
-      try{
-        var rf=await getAttFile(rats[s]);
-        var rbuf=await rf.arrayBuffer();
-        var rbin='';var rbytes=new Uint8Array(rbuf);var rchunk=32768;
-        for(var q=0;q<rbytes.length;q+=rchunk)rbin+=String.fromCharCode.apply(null,rbytes.subarray(q,q+rchunk));
-        filesArr.push({id:rats[s].id,taskId:reviews[r].id,slot:rats[s].slot,name:rats[s].name,size:rats[s].size,isImg:rats[s].isImg,b64:btoa(rbin)});
-      }catch(e){}
+      try{filesArr.push(await attToExportRecord(rats[s],reviews[r].id));}catch(e){}
     }
   }
   var payload={version:2,exportedAt:new Date().toISOString(),meta:meta,projects:projects,tasks:tasks,reviews:reviews,knows:knows,files:filesArr};
@@ -2230,21 +2264,16 @@ async function exportData(){
   setTimeout(function(){URL.revokeObjectURL(a.href);},3000);
   toast('备份已导出（含全部附件）');
 }
-$('btnExport').onclick=function(){exportData();};
-$('btnImport').onclick=function(){$('importFile').click();};
-$('importFile').onchange=function(e){
-  var file=e.target.files[0];if(!file)return;
+/* ---- 导入恢复 ---- */
+function importBackupFile(file){
   var r=new FileReader();
   r.onload=function(){
     var d;
     try{d=JSON.parse(r.result);}catch(err){toast('文件格式不正确');return;}
     if(!d||!Array.isArray(d.projects)||!Array.isArray(d.tasks)){toast('不是有效的工作台备份文件');return;}
     askConfirm('导入恢复','将用备份中的 '+d.projects.length+' 个项目、'+d.tasks.length+' 个任务、'+(d.reviews?d.reviews.length:0)+' 篇复盘、'+(d.knows?d.knows.length:0)+' 条知识点、'+(d.files?d.files.length:0)+' 个附件覆盖当前工作目录数据，且不可撤销。确定继续？',async function(){
-      projects=d.projects;tasks=d.tasks;reviews=d.reviews||[];knows=d.knows||[];
-      tasks.forEach(function(t){t.atts=t.atts||[]; if(!t.solutions){t.solutions=t.solution?[{id:uid(),content:t.solution,createdAt:t.updatedAt||t.date}]:[];}});
-      reviews.forEach(function(rv){rv.atts=rv.atts||[];});
-      knows.forEach(function(k){k.tags=k.tags||[];});
-      meta=d.meta||{sample:false};
+      normalizeData(d);
+      releaseAllAttUrls(); /* [FIX] 原先导入不清理 urlCache：同 id 附件会显示旧图，旧 URL 也泄漏 */
       /* 先清掉工作目录中现有附件文件 */
       var existing=[];
       try{
@@ -2270,32 +2299,25 @@ $('importFile').onchange=function(e){
     });
   };
   r.readAsText(file);
-  e.target.value='';
-};
-$('btnWipe').onclick=function(){
-  if(!requireDir())return;
-  askConfirm('清空全部数据','⚠ 此操作非常危险，可能导致不可逆的数据丢失！将清空工作目录中的 data.json 与全部附件文件（含复盘、知识点）。建议先「导出备份」。确定要清空吗？',async function(){
-    projects=[];tasks=[];reviews=[];knows=[];meta={sample:false};
-    try{
-      var dh=await dirHandle.getDirectoryHandle('attachments',{create:true});
-      var names=[];
-      for await (var name of dh.keys()){names.push(name);}
-      for(var i=0;i<names.length;i++){try{await dh.removeEntry(names[i]);}catch(e){}}
-    }catch(e){}
-    urlCache={};
-    await writeDataNow();
-    renderAll();toast('工作目录数据已清空');
-  });
-};
+}
+
+/* ======================= 22. 公共确认弹窗 ======================= */
 function askConfirm(title,body,onOk){
   $('cfTitle').textContent=title;$('cfBody').textContent=body;
-  var ok=$('cfOk');
-  ok.onclick=function(){closeConfirm();onOk();};
+  $('cfOk').onclick=function(){
+    closeConfirm();
+    try{
+      var r=onOk();
+      /* [FIX] 确认回调多为 async 函数，原先其内部 rejection 会静默丢失（unhandled rejection），
+         用户看不到任何失败反馈；此处保持同步调用时序不变，仅补上异步异常观测。 */
+      if(r&&r.catch)r.catch(function(e){toast('操作失败：'+((e&&e.message)||e||'未知错误'));});
+    }catch(e){toast('操作失败：'+((e&&e.message)||e||'未知错误'));}
+  };
   $('confirmMask').classList.add('show');
 }
 function closeConfirm(){$('confirmMask').classList.remove('show');}
 
-/* ======================= Tab 切换 / 初始化 ======================= */
+/* ======================= 23. Tab 切换 / 事件绑定 / 启动 ======================= */
 function activateTab(name){
   document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('active',t.dataset.tab===name);});
   document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='tab-'+name);});
@@ -2306,12 +2328,37 @@ function activateTab(name){
   if(name==='stats')renderStats();
   if(name==='calendar')renderCalendar();
 }
+/* [重构] 各处 DOM 事件绑定集中在此，便于查找；绑定目标与回调与原先一一对应 */
 document.getElementById('tabs').addEventListener('click',function(e){
   var btn=e.target.closest('.tab');if(!btn)return;
   activateTab(btn.dataset.tab);
 });
 $('tmFileTask').onchange=function(e){handleFiles(e.target.files,'task');e.target.value='';};
 $('tmFileSol').onchange=function(e){handleFiles(e.target.files,'sol');e.target.value='';};
+$('revFile').onchange=function(e){handleRevFiles(e.target.files);e.target.value='';};
+$('kmFile').onchange=function(e){importKnowFiles(e.target.files);e.target.value='';};
+$('btnExport').onclick=function(){exportData();};
+$('btnImport').onclick=function(){$('importFile').click();};
+$('importFile').onchange=function(e){
+  var file=e.target.files[0];if(!file)return;
+  importBackupFile(file);
+  e.target.value='';
+};
+$('btnWipe').onclick=function(){
+  if(!requireDir())return;
+  askConfirm('清空全部数据','⚠ 此操作非常危险，可能导致不可逆的数据丢失！将清空工作目录中的 data.json 与全部附件文件（含复盘、知识点）。建议先「导出备份」。确定要清空吗？',async function(){
+    projects=[];tasks=[];reviews=[];knows=[];meta={sample:false};
+    releaseAllAttUrls(); /* [FIX] 原先仅 urlCache={} 不 revoke */
+    try{
+      var dh=await dirHandle.getDirectoryHandle('attachments',{create:true});
+      var names=[];
+      for await (var name of dh.keys()){names.push(name);}
+      for(var i=0;i<names.length;i++){try{await dh.removeEntry(names[i]);}catch(e){}}
+    }catch(e){}
+    await writeDataNow();
+    renderAll();toast('工作目录数据已清空');
+  });
+};
 $('qaDate').value=todayStr();
 function renderAll(){
   if(!dirHandle)return;
@@ -2322,21 +2369,27 @@ function renderAll(){
   if(document.querySelector('#tab-know').classList.contains('active'))renderKnows();
   if(document.querySelector('#tab-stats').classList.contains('active'))renderStats();
   if(document.querySelector('#tab-calendar').classList.contains('active'))renderCalendar();
-  $('qaProject').innerHTML=projects.length?projects.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>';}).join(''):'<option value="">（请先创建项目）</option>';
+  /* [FIX] 原先每次 renderAll 都重建 #qaProject 选项，用户已选的所属项目会被悄悄重置回第一项，
+     快速新建时可能把任务归错项目；现保留选中值（选项被删时回退第一项） */
+  var qaSel=$('qaProject'),prevQa=qaSel.value;
+  qaSel.innerHTML=projects.length?projects.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>';}).join(''):'<option value="">（请先创建项目）</option>';
+  if(prevQa)qaSel.value=prevQa;
+  if(qaSel.selectedIndex<0)qaSel.selectedIndex=0;
   $('backupHint').style.display=(tasks.length>=30||reviews.length>=15)?'flex':'none';
 }
 /* 启动：恢复上次的工作目录（若权限仍在则自动连接，否则显示连接层） */
 (async function boot(){
   updateConnUI();
-  if(!window.showDirectoryPicker){openLock(false);return;}
-  var h=await loadHandle();
+  if(!fsApiOk()){openLock(false);return;}
+  var h=null;
+  try{h=await loadHandle();}catch(e){h=null;} /* [FIX] IndexedDB 异常原先未捕获，页面会停在无提示状态 */
   if(!h){openLock(false);return;}
   hasStoredHandle=true;
   var perm=null;
   try{perm=await h.queryPermission({mode:'readwrite'});}catch(e){}
   if(perm==='granted'){
     dirHandle=h;
-    await connectFinish();
+    try{await connectFinish();}catch(e){toast('连接工作目录失败：'+((e&&e.message)||e.name||e));openLock(false);} /* [FIX] 自动连接失败原先为静默未捕获拒绝，现给出提示并弹出连接层 */
   }else{
     openLock(false); /* 需用户点击授权 */
   }
