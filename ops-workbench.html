@@ -105,7 +105,7 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
 .form-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px;}
 .form-grid .span2{grid-column:span 2;}
 .form-grid .span4{grid-column:span 4;}
-.quick-add{display:grid; grid-template-columns:150px 1fr 170px 120px auto; gap:10px; align-items:end;}
+.quick-add{display:grid; grid-template-columns:150px 1fr 150px 110px 150px auto; gap:10px; align-items:end;}
 .empty{padding:28px 10px; text-align:center; color:var(--text3); font-size:14px;}
 .empty svg{margin-bottom:8px; opacity:.4;}
 
@@ -358,9 +358,10 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
         <div class="qa-title"><label>任务标题</label><input type="text" id="qaTitle" placeholder="例如：排查数据库连接告警" maxlength="100"></div>
         <div><label>所属项目</label><select id="qaProject"></select></div>
         <div><label>优先级</label><select id="qaPriority"><option value="P1">P1 高</option><option value="P0">P0 紧急</option><option value="P2">P2 常规</option></select></div>
+        <div><label>预计完成</label><input type="date" id="qaDue" title="留空则与「日期」相同，即默认当日完成；跨天任务可改到实际预计完成的那天"></div>
         <div><button class="btn btn-primary" style="width:100%" onclick="quickAdd()">添加</button></div>
       </div>
-      <div style="font-size:12px;color:var(--text3);margin-top:8px;">提示：详细描述、图片与文件附件可在任务详情中补充，附件保存为工作目录中的真实文件。</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:8px;">提示：「预计完成」留空即默认当日完成；超过该日期未完成才会提示超期，可随时在任务详情里改期。详细描述、图片与文件附件可在任务详情中补充，附件保存为工作目录中的真实文件。</div>
     </div>
     <div class="card" id="sampleCard" style="display:none">
       <div class="card-title">
@@ -466,7 +467,7 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
           <option value="">全部日期</option>
           <option value="today">仅今天</option>
           <option value="week">本周</option>
-          <option value="overdue">逾期未完成</option>
+          <option value="overdue">已超期未完成</option>
         </select>
       </div>
       <div id="taskList"></div>
@@ -607,7 +608,7 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
         <button class="btn btn-sm" onclick="shiftCalMonth(1)">下月 ›</button>
         <button class="btn btn-sm" onclick="goCalThisMonth()">本月</button>
       </div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">红色 = 当天有逾期未完成任务 · 绿色 = 已写复盘 · 蓝色 = 当日收录知识点 · 点击日期查看当天任务与复盘</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">红色 = 当天有超期未完成任务 · 绿色 = 已写复盘 · 蓝色 = 当日收录知识点 · 点击日期查看当天任务与复盘</div>
       <div id="calGrid"></div>
     </div>
   </section>
@@ -658,6 +659,7 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
         <div><label>所属项目</label><select id="tmProject"></select></div>
         <div><label>优先级</label><select id="tmPriority"><option value="P0">P0 紧急</option><option value="P1">P1 高</option><option value="P2">P2 常规</option></select></div>
         <div><label>日期</label><input type="date" id="tmDate"></div>
+        <div><label>预计完成</label><input type="date" id="tmDue" title="超过该日期仍未完成才会提示超期；任务排期变化时可随时改"></div>
         <div><label>状态</label><select id="tmStatus"><option value="todo">待处理</option><option value="doing">进行中</option><option value="done">已完成</option></select></div>
         <div><label>任务来源</label><select id="tmSource"><option>业主提出</option><option>内部巡检</option><option>其他</option></select></div>
         <div class="span2" style="display:flex;align-items:flex-end;"><button class="btn btn-primary" style="width:100%" onclick="saveTaskBasic()">保存基本信息</button></div>
@@ -831,6 +833,16 @@ function cn(n){return ['一','二','三','四','五','六','七','八','九','�
 function cleanText(s){return String(s||'').replace(/[ \t]+/g,' ').replace(/^[ \t]+|[ \t]+$/gm,'');}
 /* 列表摘要截断（复盘记录、日历弹窗方案行） */
 function revCut(s,n){s=String(s||'').replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n)+'…':s;}
+/* ---- 预计完成日期（dueDate）判定 ---- */
+/* 任务的预计完成日期：老数据无该字段时回退任务日期，保持「默认当日完成」的原语义 */
+function dueOf(t){return (t&&(t.dueDate||t.date))||todayStr();}
+/* 超期天数：只有「未完成 且 预计完成日期早于今天」才算超期；已完成、或预计日期尚未到期均返回 0。
+   [新增] 原先各处直接用 t.date 判定，跨天续处理的任务一过当天就被误报「已逾期 N 天」，现统一改走此函数 */
+function overdueDaysOf(t,today){
+  if(!t||t.status==='done')return 0;
+  var d=dayDiff(today||todayStr(),dueOf(t));
+  return d>0?d:0;
+}
 /* Toast：单例复用同一 DOM，重复调用先清掉上一次的隐藏定时器，避免闪烁互踩 */
 function toast(msg){var t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._tm);t._tm=setTimeout(function(){t.classList.remove('show');},2400);}
 function copyText(txt){
@@ -1039,6 +1051,8 @@ function normalizeData(d){
     if(!t.date)t.date=t.createdAt||todayStr();
     if(!t.status)t.status='todo';
     if(!t.priority)t.priority='P2';
+    /* [新增] 预计完成日期：老数据没有该字段，兜底为任务日期，等价于原有「默认当日完成」语义 */
+    if(!t.dueDate)t.dueDate=t.date;
   });
   reviews.forEach(function(r){r.atts=r.atts||[];if(!r.date)r.date=r.createdAt||todayStr();});
   knows.forEach(function(k){k.tags=k.tags||[];if(!k.date)k.date=k.createdAt||todayStr();});
@@ -1245,18 +1259,20 @@ function downloadAtt(id){
 
 /* ======================= 9. 示例数据 ======================= */
 function seedSample(){
-  var t=todayStr(),y=addDays(t,-1),t2=addDays(t,2);
+  var t=todayStr(),y=addDays(t,-1),t2=addDays(t,2),tm=addDays(t,1),y3=addDays(t,-3);
   projects=[
     {id:'sp-p1',name:'档案管理系统运维',status:'active',note:'业主：市档案馆 · 驻场核心项目',createdAt:y},
     {id:'sp-p2',name:'OA门户二期',status:'active',note:'业主：办公室 · 每周三例会',createdAt:y},
     {id:'sp-p3',name:'数据治理平台',status:'paused',note:'暂缓中，等待业主通知重启',createdAt:y}
   ];
+  /* [新增] 示例任务均带 dueDate（预计完成日期），并刻意覆盖三种情形：
+     跨天续处理未到期(t1) / 当日到期(t2,t5) / 已超期(t3) / 已完成(t4) */
   tasks=[
-    {id:'sp-t1',projectId:'sp-p1',title:'数据库连接池告警排查',desc:'监控连续两天告警连接数超阈值，需排查应用连接池配置。',date:y,priority:'P0',status:'doing',source:'业主提出',solution:'初步定位为连接未释放，已调整连接池上限并重启服务，持续观察中。',solutions:[{id:'sp-s1',content:'初步定位为连接未释放，已调整连接池上限并重启服务，持续观察中。',createdAt:y+' 14:30'},{id:'sp-s2',content:'今日复查：连接池水位恢复正常，告警已消除。已通知业主确认，暂保持观察。',createdAt:t+' 10:15'}],atts:[],createdAt:y,updatedAt:t},
-    {id:'sp-t2',projectId:'sp-p1',title:'报表导出超慢问题定位',desc:'业主反馈大数据量报表导出超过 5 分钟。',date:t,priority:'P1',status:'todo',source:'业主提出',solution:'',solutions:[],atts:[],createdAt:t,updatedAt:t},
-    {id:'sp-t3',projectId:'sp-p2',title:'业主例会材料准备',desc:'整理本周运维情况、遗留问题清单。',date:t,priority:'P2',status:'todo',source:'内部巡检',solution:'',solutions:[],atts:[],createdAt:t,updatedAt:t},
-    {id:'sp-t4',projectId:'sp-p1',title:'用户无法登录问题处理',desc:'多个账号登录提示凭据错误。',date:y,priority:'P0',status:'done',source:'业主提出',solution:'重置 LDAP 同步定时任务并补齐增量数据，当日恢复正常。',solutions:[{id:'sp-s3',content:'重置 LDAP 同步定时任务并补齐增量数据，当日恢复正常。',createdAt:y+' 16:00'}],atts:[],createdAt:y,updatedAt:y},
-    {id:'sp-t5',projectId:'sp-p2',title:'阶段性巡检报告提交',desc:'按合同要求提交月度巡检报告。',date:t2,priority:'P2',status:'todo',source:'内部巡检',solution:'',solutions:[],atts:[],createdAt:t,updatedAt:t}
+    {id:'sp-t1',projectId:'sp-p1',title:'数据库连接池告警排查',desc:'监控连续两天告警连接数超阈值，需排查应用连接池配置。预计明天完成，属跨天续处理，未到期不算超期。',date:y,dueDate:tm,priority:'P0',status:'doing',source:'业主提出',solution:'初步定位为连接未释放，已调整连接池上限并重启服务，持续观察中。',solutions:[{id:'sp-s1',content:'初步定位为连接未释放，已调整连接池上限并重启服务，持续观察中。',createdAt:y+' 14:30'},{id:'sp-s2',content:'今日复查：连接池水位恢复正常，告警已消除。已通知业主确认，暂保持观察。',createdAt:t+' 10:15'}],atts:[],createdAt:y,updatedAt:t},
+    {id:'sp-t2',projectId:'sp-p1',title:'报表导出超慢问题定位',desc:'业主反馈大数据量报表导出超过 5 分钟。',date:t,dueDate:t,priority:'P1',status:'todo',source:'业主提出',solution:'',solutions:[],atts:[],createdAt:t,updatedAt:t},
+    {id:'sp-t3',projectId:'sp-p2',title:'业主例会材料准备',desc:'整理本周运维情况、遗留问题清单。已过预计完成日期，会被标记为超期。',date:y3,dueDate:y,priority:'P2',status:'todo',source:'内部巡检',solution:'',solutions:[],atts:[],createdAt:y3,updatedAt:y3},
+    {id:'sp-t4',projectId:'sp-p1',title:'用户无法登录问题处理',desc:'多个账号登录提示凭据错误。',date:y,dueDate:y,priority:'P0',status:'done',source:'业主提出',solution:'重置 LDAP 同步定时任务并补齐增量数据，当日恢复正常。',solutions:[{id:'sp-s3',content:'重置 LDAP 同步定时任务并补齐增量数据，当日恢复正常。',createdAt:y+' 16:00'}],atts:[],createdAt:y,updatedAt:y},
+    {id:'sp-t5',projectId:'sp-p2',title:'阶段性巡检报告提交',desc:'按合同要求提交月度巡检报告。',date:t2,dueDate:t2,priority:'P2',status:'todo',source:'内部巡检',solution:'',solutions:[],atts:[],createdAt:t,updatedAt:t}
   ];
   reviews=[
     {id:'sp-r1',date:y,
@@ -1376,6 +1392,7 @@ function attCntHtml(t){return (t.atts&&t.atts.length)?'<span style="display:inli
 function taskRowHtml(t,overdueDays){
   var p=projById(t.projectId);
   var ov=overdueDays>0;
+  var due=dueOf(t);
   return '<div class="task-row'+(ov?' overdue':'')+(t.status==='done'?' done-row':'')+'">'
     +'<div class="tr-main">'
     +'<div class="tr-title">'+esc(t.title)+'</div>'
@@ -1383,8 +1400,9 @@ function taskRowHtml(t,overdueDays){
     +projTagHtml(p)
     +'<span class="badge '+t.priority.toLowerCase()+'">'+P_NAME[t.priority]+'</span>'
     +'<span class="badge st-'+t.status+'">'+S_NAME[t.status]+'</span>'
-    +(ov?'<span style="color:var(--red);font-weight:700">已逾期 '+overdueDays+' 天</span>':'')
+    +(ov?'<span style="color:var(--red);font-weight:700">已超期 '+overdueDays+' 天</span>':'')
     +'<span>'+t.date+(t.source?' · '+esc(t.source):'')+'</span>'
+    +(due!==t.date?'<span'+(ov?' style="color:var(--red)"':'')+'>预计 '+due+' 完成</span>':'')
     +attCntHtml(t)
     +'</div>'
     +(t.solution?'<div class="tr-solution"><b>方案'+(t.solutions&&t.solutions.length>1?('（'+t.solutions.length+' 条）'):'')+'：</b>'+esc(t.solution.length>120?t.solution.slice(0,120)+'…':t.solution)+'</div>':'')
@@ -1400,15 +1418,17 @@ function renderToday(){
   var overdue=[],today=[],soon=[],doneRecent=[];
   tasks.forEach(function(x){
     if(x.status==='done'){if(x.date<=t&&x.updatedAt>=addDays(t,-1))doneRecent.push(x);return;}
-    if(x.date<t)overdue.push(x);
-    else if(x.date===t)today.push(x);
-    else if(x.date<=addDays(t,2))soon.push(x);
+    /* [新增] 按预计完成日期分档：只有过了预计完成日期才算超期，跨天续处理的任务不再被误报 */
+    var d=dueOf(x);
+    if(d<t)overdue.push(x);
+    else if(d===t)today.push(x);
+    else if(d<=addDays(t,2))soon.push(x);
   });
   var total=overdue.length+today.length+soon.length;
   $('todayHint').textContent=total?('待处理 '+total+' 项 · '+t):t;
   if(overdue.length){
-    h+='<div class="today-section"><h3 style="color:var(--red)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>逾期未完成（昨天没做完的自动顺延到这里）<span class="cnt">'+overdue.length+'</span></h3>';
-    overdue.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(x){h+=taskRowHtml(x,dayDiff(t,x.date));});
+    h+='<div class="today-section"><h3 style="color:var(--red)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>已超期未完成（已超过预计完成日期）<span class="cnt">'+overdue.length+'</span></h3>';
+    overdue.sort(function(a,b){return dueOf(a)<dueOf(b)?-1:1;}).forEach(function(x){h+=taskRowHtml(x,overdueDaysOf(x,t));});
     h+='</div>';
   }
   h+='<div class="today-section"><h3><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#2f6fed" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#2f6fed" stroke-width="2" stroke-linecap="round"/></svg>今天该做的<span class="cnt">'+today.length+'</span></h3>';
@@ -1416,8 +1436,8 @@ function renderToday(){
   else h+='<div class="empty">今天暂无待办，休息一下或提前处理即将到期的任务。</div>';
   h+='</div>';
   if(soon.length){
-    h+='<div class="today-section"><h3 style="color:var(--orange)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>快到期的（2 天内）<span class="cnt">'+soon.length+'</span></h3>';
-    soon.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(x){h+=taskRowHtml(x,0);});
+    h+='<div class="today-section"><h3 style="color:var(--orange)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>快到期的（预计完成日在 2 天内）<span class="cnt">'+soon.length+'</span></h3>';
+    soon.sort(function(a,b){return dueOf(a)<dueOf(b)?-1:1;}).forEach(function(x){h+=taskRowHtml(x,0);});
     h+='</div>';
   }
   if(doneRecent.length){
@@ -1433,7 +1453,8 @@ function quickAdd(){
   var title=$('qaTitle').value.trim();
   if(!title){toast('请填写任务标题');return;}
   var d=$('qaDate').value||todayStr();
-  tasks.push({id:uid(),projectId:$('qaProject').value||'nop',title:title,desc:'',date:d,
+  var due=$('qaDue').value||d; /* [新增] 预计完成日期：留空即与日期相同（默认当日完成） */
+  tasks.push({id:uid(),projectId:$('qaProject').value||'nop',title:title,desc:'',date:d,dueDate:due,
     priority:$('qaPriority').value,status:'todo',source:'业主提出',solution:'',solutions:[],atts:[],createdAt:todayStr(),updatedAt:todayStr()});
   persist();$('qaTitle').value='';renderAll();toast('任务已添加');
 }
@@ -1443,7 +1464,7 @@ function requireDir(){
 }
 function postpone(id){
   var t=taskById(id);if(!t)return;
-  t.date=todayStr();t.updatedAt=todayStr();persist();renderAll();toast('已顺延到今天');
+  t.dueDate=todayStr();t.updatedAt=todayStr();persist();renderAll();toast('预计完成日期已改到今天');
 }
 function quickDone(id){
   var t=taskById(id);if(!t)return;
@@ -1464,7 +1485,7 @@ function renderTasks(){
     if(fs&&x.status!==fs)return false;
     if(fd==='today'&&x.date!==t)return false;
     if(fd==='week'&&(x.date<ws||x.date>addDays(ws,6)))return false;
-    if(fd==='overdue'&&(x.status==='done'||x.date>=t))return false;
+    if(fd==='overdue'&&overdueDaysOf(x,t)===0)return false; /* [新增] 逾期筛选改按预计完成日期判定 */
     if(kw){var hay=(x.title+' '+x.desc+' '+(x.solutions||[]).map(function(s){return s.content;}).join(' ')+' '+x.solution+' '+(x.atts||[]).map(function(a){return a.name;}).join(' ')+' '+projName(x.projectId)).toLowerCase();if(hay.indexOf(kw)<0)return false;}
     return true;
   });
@@ -1472,7 +1493,7 @@ function renderTasks(){
   $('taskCnt').textContent='共 '+list.length+' 项';
   var h='';
   list.forEach(function(x){
-    var od=x.status!=='done'&&x.date<t?dayDiff(t,x.date):0;
+    var od=overdueDaysOf(x,t),due=dueOf(x);
     h+='<div class="task-full'+(x.status==='done'?' done':'')+'">'
       +'<div class="tf-top">'
       +'<span class="tf-title">'+esc(x.title)+'</span>'
@@ -1484,9 +1505,10 @@ function renderTasks(){
       +'<div class="tf-foot">'
       +projTagHtml(projById(x.projectId))
       +'<span>'+x.date+'</span>'
+      +(due!==x.date?'<span'+(od?' style="color:var(--red)"':'')+'>预计 '+due+' 完成</span>':'')
       +(x.source?'<span>来源：'+esc(x.source)+'</span>':'')
       +attCntHtml(x)
-      +(od?'<span style="color:var(--red);font-weight:700">逾期 '+od+' 天</span>':'')
+      +(od?'<span style="color:var(--red);font-weight:700">已超期 '+od+' 天</span>':'')
       +'<span style="flex:1"></span>'
       +'<button class="btn btn-sm" onclick="openTaskModal(\''+x.id+'\')">详情 / 处理</button>'
       +'</div></div>';
@@ -1558,6 +1580,7 @@ function openCreateModal(){
   $('tmTitle').textContent='新建任务';
   fillProjectSelect('tmProject');
   $('tmName').value='';$('tmDesc').value='';$('tmDate').value=todayStr();
+  $('tmDue').value=todayStr(); /* [新增] 新建任务默认预计当日完成 */
   $('tmPriority').value='P1';$('tmStatus').value='todo';$('tmSource').value='业主提出';
   $('tmSolution').value='';$('tmDoneBtn').style.display='none';
   $('solHistory').innerHTML='';$('solCnt').textContent='';
@@ -1570,6 +1593,7 @@ function openTaskModal(id){
   $('tmTitle').textContent='任务详情';
   fillProjectSelect('tmProject');
   $('tmName').value=t.title;$('tmProject').value=t.projectId;$('tmDate').value=t.date;
+  $('tmDue').value=dueOf(t); /* [新增] 预计完成日期（老数据回退任务日期） */
   $('tmPriority').value=t.priority;$('tmStatus').value=t.status;$('tmSource').value=t.source||'业主提出';
   $('tmDesc').value=t.desc||'';$('tmSolution').value='';
   $('tmDoneBtn').style.display='';
@@ -1590,12 +1614,14 @@ function saveTaskBasic(){
     var t=taskById(currentTaskId);
     if(!t)return; /* [FIX] 任务被删后弹窗仍开着时原先直接抛 TypeError */
     t.title=name;t.projectId=$('tmProject').value;t.date=$('tmDate').value||now;
+    t.dueDate=$('tmDue').value||t.date; /* [新增] 预计完成日期，留空则回退任务日期 */
     t.priority=$('tmPriority').value;t.status=$('tmStatus').value;t.source=$('tmSource').value;
     t.desc=$('tmDesc').value.trim();t.updatedAt=now;
     toast('任务已保存');
   }else{
+    var nd=$('tmDate').value||now;
     tasks.push({id:uid(),projectId:$('tmProject').value,title:name,desc:$('tmDesc').value.trim(),
-      date:$('tmDate').value||now,priority:$('tmPriority').value,status:$('tmStatus').value,
+      date:nd,dueDate:$('tmDue').value||nd,priority:$('tmPriority').value,status:$('tmStatus').value,
       source:$('tmSource').value,solution:'',solutions:[],atts:[],createdAt:now,updatedAt:now});
     currentTaskId=tasks[tasks.length-1].id;
     $('tmTitle').textContent='任务详情';$('tmDoneBtn').style.display='';
@@ -1914,7 +1940,7 @@ function periodProjectSections(list){
     if(!mine.length)return;
     h+='<div class="today-section"><h3>'+projTagHtml(p)+'<span class="cnt">'+mine.length+' 项</span></h3>';
     mine.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(x){
-      h+=taskRowHtml(x,x.status!=='done'&&x.date<t?dayDiff(t,x.date):0);
+      h+=taskRowHtml(x,overdueDaysOf(x,t)); /* [新增] 超期判定改用预计完成日期 */
     });
     h+='</div>';
   });
@@ -2077,7 +2103,7 @@ async function exportMonthlyMd(){
 function statNumbers(){
   var t=todayStr();
   var n=statusCounts(tasks);
-  var overdue=tasks.filter(function(x){return x.status!=='done'&&x.date<t;}).length;
+  var overdue=tasks.filter(function(x){return overdueDaysOf(x,t)>0;}).length; /* [新增] 超期=未完成且已过预计完成日期 */
   return {total:tasks.length,done:n.done,doing:n.doing,overdue:overdue,rate:tasks.length?Math.round(n.done*100/tasks.length):0};
 }
 function renderStats(){
@@ -2087,7 +2113,7 @@ function renderStats(){
     statCardHtml('c-blue',s.total,'任务总数')
     +statCardHtml('c-green',s.rate+'%','总完成率')
     +statCardHtml('c-orange',s.doing,'进行中')
-    +statCardHtml('c-gray',s.overdue,'逾期未完成')
+    +statCardHtml('c-gray',s.overdue,'已超期未完成')
     +statCardHtml('c-blue',reviews.length,'复盘篇数')
     +statCardHtml('c-green',knows.length,'知识点条数');
   var h='';
@@ -2115,7 +2141,7 @@ function renderStats(){
 function copyStatsText(){
   var s=statNumbers();
   var lines=['【运维工作台统计】截至 '+todayStr(),''];
-  lines.push('任务总数：'+s.total+'｜已完成：'+s.done+'（'+s.rate+'%）｜进行中：'+s.doing+'｜逾期未完成：'+s.overdue);
+  lines.push('任务总数：'+s.total+'｜已完成：'+s.done+'（'+s.rate+'%）｜进行中：'+s.doing+'｜已超期未完成：'+s.overdue);
   lines.push('复盘：'+reviews.length+' 篇｜知识点：'+knows.length+' 条');
   if(projects.length){
     lines.push('');
@@ -2149,12 +2175,13 @@ function renderCalendar(){
     var d=addDays(first,i-lead);
     var other=d.slice(0,7)!==ym;
     var mine=taskIdx[d]||[];
-    var undone=mine.filter(function(x){return x.status!=='done';}).length;
+    /* [新增] 红色改为「该日任务中存在已超期未完成」，不再用「日期早于今天」粗判 */
+    var odCnt=mine.filter(function(x){return overdueDaysOf(x,t)>0;}).length;
     var r=revIdx[d];
     var kn=knowCnt[d]||0;
     h+='<div class="cal-cell'+(other?' other':'')+(d===t?' today':'')+'" onclick="openDayModal(\''+d+'\')">'
       +'<div class="cd">'+(+d.slice(8))+'</div><div class="cv">';
-    if(mine.length)h+='<span class="cal-pill'+(undone&&d<t?' red':'')+'">'+mine.length+' 任务</span>';
+    if(mine.length)h+='<span class="cal-pill'+(odCnt?' red':'')+'">'+mine.length+' 任务</span>';
     if(r)h+='<span class="cal-pill green">复盘</span>';
     if(kn)h+='<span class="cal-pill blue">知 '+kn+'</span>';
     h+='</div></div>';
@@ -2185,9 +2212,13 @@ function openDayModal(d){
         solLine='<div class="tr-solution"><b>方案：</b>'+esc(revCut(t.solution,80))+'</div>';
       }
       var mark=t.date!==d?'<span class="badge" style="background:var(--primary-bg);color:var(--primary)">续处理</span>':'';
+      var od=overdueDaysOf(t,todayStr()); /* [新增] 超期标记按预计完成日期判定 */
       h+='<div class="task-row" style="cursor:pointer" onclick="closeDayModal();openTaskModal(\''+t.id+'\')">'
         +'<div class="tr-main"><div class="tr-title">'+esc(t.title)+'</div>'
-        +'<div class="tr-meta">'+projTagHtml(projById(t.projectId))+'<span class="badge st-'+t.status+'">'+S_NAME[t.status]+'</span><span class="badge '+t.priority.toLowerCase()+'">'+P_NAME[t.priority]+'</span>'+mark+'</div>'
+        +'<div class="tr-meta">'+projTagHtml(projById(t.projectId))+'<span class="badge st-'+t.status+'">'+S_NAME[t.status]+'</span><span class="badge '+t.priority.toLowerCase()+'">'+P_NAME[t.priority]+'</span>'+mark
+        +((dueOf(t)!==t.date)?'<span'+(od?' style="color:var(--red)"':'')+'>预计 '+dueOf(t)+' 完成</span>':'')
+        +(od?'<span style="color:var(--red);font-weight:700">已超期 '+od+' 天</span>':'')
+        +'</div>'
         +solLine
         +'</div></div>';
     });
