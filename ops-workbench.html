@@ -109,6 +109,9 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
 .form-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px;}
 .form-grid .span2{grid-column:span 2;}
 .form-grid .span4{grid-column:span 4;}
+/* [新增] 描述框失焦自动保存后的轻提示：只在真正写入时出现，2 秒后淡出，不用 toast 打断输入 */
+.auto-saved{margin-left:8px; font-weight:400; font-size:12px; color:var(--green); opacity:0; transition:opacity .25s;}
+.auto-saved.show{opacity:1;}
 .quick-add{display:grid; grid-template-columns:150px 1fr 150px 110px 150px auto; gap:10px; align-items:end;}
 .empty{padding:28px 10px; text-align:center; color:var(--text3); font-size:14px;}
 .empty svg{margin-bottom:8px; opacity:.4;}
@@ -764,7 +767,11 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
         <div><label>状态</label><select id="tmStatus"><option value="todo">待处理</option><option value="doing">进行中</option><option value="done">已完成</option></select></div>
         <div><label>任务来源</label><select id="tmSource"><option>业主提出</option><option>内部巡检</option><option>其他</option></select></div>
         <div class="span2" style="display:flex;align-items:flex-end;"><button class="btn btn-primary" style="width:100%" onclick="saveTaskBasic()">保存基本信息</button></div>
-        <div class="span4"><label>任务描述</label><textarea id="tmDesc" placeholder="问题现象、影响范围、业主反馈等"></textarea></div>
+        <div class="span4">
+          <label>任务描述<span class="auto-saved" id="tmDescSaved">已自动保存</span></label>
+          <textarea id="tmDesc" placeholder="问题现象、影响范围、业主反馈等"></textarea>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">填完点到别处即自动保存，不必再点「保存基本信息」</div>
+        </div>
       </div>
     </div>
     <div class="modal-sec">
@@ -1819,12 +1826,39 @@ function openTaskModal(id){
   renderAttachments();renderSolutions();
   $('taskMask').classList.add('show');
 }
-function closeTaskModal(){$('taskMask').classList.remove('show');currentTaskId=null;}
+function closeTaskModal(){
+  autoSaveTaskDesc(); /* [新增] 关闭前兜底：描述改了却没点保存按钮时，关闭也不丢内容 */
+  $('taskMask').classList.remove('show');currentTaskId=null;
+}
 function fillProjectSelect(sel){
   var s=$(sel);
   s.innerHTML=projects.length?projects.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>';}).join(''):'<option value="nop">（请先在「项目」页创建项目）</option>';
 }
-function saveTaskBasic(){
+/* ---- 任务描述失焦自动保存 ---- */
+/* 用户常忘记点「保存基本信息」，描述写完点到别处即落盘（含关闭弹窗时兜底）。
+   只在「内容真的变了」时写入，避免每次路过输入框都触发一次 persist。 */
+var descSavedTimer=null;
+function markDescSaved(text){
+  var el=$('tmDescSaved');if(!el)return;
+  el.textContent=text||'已自动保存';
+  el.classList.add('show');
+  clearTimeout(descSavedTimer);
+  descSavedTimer=setTimeout(function(){el.classList.remove('show');},2200);
+}
+function autoSaveTaskDesc(){
+  if(!$('tmDesc')||!$('taskMask').classList.contains('show'))return; /* 弹窗没开就不做事 */
+  var t=currentTaskId?taskById(currentTaskId):null;
+  if(currentTaskId&&!t)return; /* 任务已被删除，放弃保存 */
+  var cur=$('tmDesc').value.trim();
+  if(t&&(t.desc||'')===cur)return; /* 已有任务且描述没变，无需写盘 */
+  /* 新建态：标题还空着就不自动建任务，避免误创建空任务；仍由用户点「保存基本信息」决定 */
+  if(!t&&!$('tmName').value.trim())return;
+  var wasNew=!currentTaskId;
+  saveTaskBasic(true); /* silent：不弹 toast，改用输入框旁的轻提示 */
+  if(wasNew&&currentTaskId)toast('任务已自动创建并保存'); /* 新建是状态变化较大，明确告知 */
+  else if(!wasNew)markDescSaved('已自动保存');
+}
+function saveTaskBasic(silent){
   var name=$('tmName').value.trim();
   if(!name){toast('请填写任务标题');return;}
   var now=todayStr();
@@ -1835,7 +1869,7 @@ function saveTaskBasic(){
     t.dueDate=$('tmDue').value||t.date; /* [新增] 预计完成日期，留空则回退任务日期 */
     t.priority=$('tmPriority').value;t.status=$('tmStatus').value;t.source=$('tmSource').value;
     t.desc=$('tmDesc').value.trim();t.updatedAt=now;
-    toast('任务已保存');
+    if(!silent)toast('任务已保存');
   }else{
     var nd=$('tmDate').value||now;
     tasks.push({id:uid(),projectId:$('tmProject').value,title:name,desc:$('tmDesc').value.trim(),
@@ -1843,7 +1877,7 @@ function saveTaskBasic(){
       source:$('tmSource').value,solution:'',solutions:[],atts:[],createdAt:now,updatedAt:now});
     currentTaskId=tasks[tasks.length-1].id;
     $('tmTitle').textContent='任务详情';$('tmDoneBtn').style.display='';
-    toast('任务已创建，可继续上传附件');
+    if(!silent)toast('任务已创建，可继续上传附件');
   }
   persist();renderAll();renderAttachments();
 }
@@ -2845,6 +2879,8 @@ document.getElementById('tabs').addEventListener('click',function(e){
   activateTab(btn.dataset.tab);
 });
 $('tmFileTask').onchange=function(e){handleFiles(e.target.files,'task');e.target.value='';};
+/* [新增] 任务描述失焦自动保存：解决「填完忘了点保存基本信息」导致内容丢失 */
+$('tmDesc').addEventListener('blur',function(){autoSaveTaskDesc();});
 $('tmFileSol').onchange=function(e){handleFiles(e.target.files,'sol');e.target.value='';};
 $('revFile').onchange=function(e){handleRevFiles(e.target.files);e.target.value='';};
 $('kmFile').onchange=function(e){importKnowFiles(e.target.files);e.target.value='';};
