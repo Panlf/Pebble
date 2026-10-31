@@ -142,6 +142,10 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
 /* ============ 周报 ============ */
 .week-nav{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
 .week-nav .range{font-size:16px; font-weight:700; font-variant-numeric:tabular-nums;}
+.week-nav .spacer{flex:1;}
+/* [新增] 周报/月报导航条上的项目筛选下拉 */
+.week-nav .proj-filter{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text2);}
+.week-nav .proj-filter select{min-width:140px;}
 .stat-cards{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px;}
 .stat-card{background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px;}
 .stat-card .sc-num{font-size:24px; font-weight:800; font-variant-numeric:tabular-nums;}
@@ -253,6 +257,53 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
 .bars .bar span{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text3);white-space:nowrap;}
 .bars-wrap{padding-bottom:24px;overflow-x:auto;}
 
+/* [新增] 统计页数据分析增强：多序列柱状图 / 活跃热力图 / 水平堆叠条 / 状态环形图 / 项目健康度表 */
+.stat-legend{display:flex;align-items:center;gap:14px;font-size:12px;color:var(--text2);margin-bottom:4px;flex-wrap:wrap;}
+.stat-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;}
+/* [FIX] 柱状列改为弹性拉伸铺满容器（原固定 44px 左侧扎堆、右侧大片留白），柱体加粗上限 24px */
+.wbars{display:flex;align-items:flex-end;gap:4px;height:110px;padding-top:6px;}
+.wbars .wcol{flex:1;min-width:0;display:flex;align-items:flex-end;justify-content:center;gap:3px;height:100%;position:relative;}
+.wbars .wb{flex:1;max-width:24px;border-radius:4px 4px 0 0;min-height:2px;opacity:.85;}
+.wbars .wcol:hover .wb{opacity:1;}
+.wbars .wlab{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text3);white-space:nowrap;}
+.heat-wrap{display:flex;gap:6px;align-items:flex-start;overflow-x:auto;padding-bottom:2px;}
+.heat-wd{display:grid;grid-template-rows:repeat(7,13px);gap:3px;font-size:10px;color:var(--text3);width:14px;flex:none;}
+.heat-wd span{line-height:13px;height:13px;}
+.heat{display:flex;gap:3px;}
+.heat .hcol{display:grid;grid-template-rows:repeat(7,13px);gap:3px;flex:none;}
+.heat .hc{width:13px;height:13px;border-radius:3px;background:var(--bg);}
+.heat .hc.fut{visibility:hidden;}
+.hrow{display:grid;grid-template-columns:72px 1fr 120px;align-items:center;gap:10px;margin:7px 0;font-size:13px;}
+.hrow .hname{color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.htrack{height:16px;border-radius:8px;background:var(--bg);overflow:hidden;display:flex;}
+.htrack i{height:100%;min-width:2px;}
+.hval{font-size:12px;color:var(--text2);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.hval b{color:var(--text);}
+.donut-wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+/* [新增] 窄列里的环形图改纵向堆叠：圆环居中 + 图例在下 */
+.donut-wrap.v{flex-direction:column;align-items:center;gap:10px;}
+.donut-wrap.v .donut-leg .li{min-width:190px;margin:4px 0;}
+.donut{width:132px;height:132px;border-radius:50%;flex:none;}
+.donut .donut-in{width:96px;height:96px;border-radius:50%;background:var(--card);margin:18px auto 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;}
+.donut .donut-in b{font-size:22px;font-weight:800;}
+.donut .donut-in span{font-size:11px;color:var(--text3);}
+.donut-leg .li{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px;color:var(--text2);min-width:150px;}
+.donut-leg .li i{width:10px;height:10px;border-radius:3px;flex:none;}
+.donut-leg .li b{color:var(--text);margin-left:auto;padding-left:16px;font-variant-numeric:tabular-nums;}
+/* [FIX] 图表并排网格：横向并排的 today-section 之间不画虚线分隔（横排在卡片中部生横线显得零散）。
+   ★ 必须用 > 限定直接子元素——纵向堆叠的小节（见 .stat-stack）不该被这条规则波及 */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 28px;}
+.chart-grid > .today-section{border-top:none;margin-top:0;padding-top:0;}
+/* [FIX] 堆叠列自动拉伸到与另一列等高：多余空间在两小节之间均分，不再沉积成底部留白；条高略增使块面更饱满 */
+.stat-stack{display:flex;flex-direction:column;justify-content:space-between;}
+.stat-stack > .today-section{margin:0;padding:0;border-top:none;}
+.stat-stack .hrow{margin:9px 0;}
+.stat-stack .hrow:last-child{margin-bottom:0;}
+.stat-stack .htrack{height:20px;}
+.proj-hrow{display:grid;grid-template-columns:minmax(120px,1.5fr) 56px minmax(100px,1.2fr) 72px 92px;gap:10px;align-items:center;padding:9px 0;border-top:1px dashed var(--line);font-size:13px;}
+.proj-hrow .ph-head{font-size:11px;color:var(--text3);font-weight:600;}
+.proj-hrow .ph-head:first-child{padding-top:0;}
+
 /* ============ 知识点 Markdown 渲染 ============ */
 .know-md{font-size:13px; line-height:1.75; color:var(--text); word-break:break-word;}
 .know-md p{margin:4px 0;}
@@ -290,6 +341,8 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
   .form-grid .span2,.form-grid .span4{grid-column:span 2;}
   .filters{grid-template-columns:1fr 1fr;}
   .stat-cards{grid-template-columns:repeat(2,1fr);}
+  .chart-grid{grid-template-columns:1fr;}
+  .hrow{grid-template-columns:64px 1fr 96px;}
   .task-row .tr-actions{width:100%;}
   .task-row .tr-actions .btn{flex:1;}
   .modal{padding:16px;}
@@ -564,6 +617,9 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
         <span class="range" id="weekRange"></span>
         <button class="btn btn-sm" onclick="shiftWeek(1)">下一周 ›</button>
         <button class="btn btn-sm" onclick="goThisWeek()">本周</button>
+        <!-- [新增] 周报按项目筛选：默认全部项目，选中后只汇总该项目任务 -->
+        <span class="spacer"></span>
+        <span class="proj-filter"><label for="wProj">项目</label><select id="wProj" onchange="renderWeekly()"><option value="">全部项目</option></select></span>
       </div>
       <div class="stat-cards" id="weekStats"></div>
       <div id="weekBody"></div>
@@ -583,7 +639,7 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
           导出 .md
         </button>
       </div>
-      <textarea class="weekly-text" id="weeklyText" readonly placeholder="点击「生成周报文本」后，自动汇总本周各项目的任务与解决方案，可一键复制到微信 / 邮件 / 周报系统。"></textarea>
+      <textarea class="weekly-text" id="weeklyText" readonly placeholder="点击「生成周报文本」后，自动汇总本周各项目的任务与解决方案；可在上方切换项目，只生成该项目的周报。可一键复制到微信 / 邮件 / 周报系统。"></textarea>
     </div>
   </section>
 
@@ -599,6 +655,9 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
         <span class="range" id="monthRange"></span>
         <button class="btn btn-sm" onclick="shiftMonth(1)">下个月 ›</button>
         <button class="btn btn-sm" onclick="goThisMonth()">本月</button>
+        <!-- [新增] 月报按项目筛选：默认全部项目，选中后只汇总该项目任务 -->
+        <span class="spacer"></span>
+        <span class="proj-filter"><label for="mProj">项目</label><select id="mProj" onchange="renderMonthly()"><option value="">全部项目</option></select></span>
       </div>
       <div class="stat-cards" id="monthStats"></div>
       <div id="monthBody"></div>
@@ -612,7 +671,7 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
         <button class="btn btn-sm" onclick="copyMonthly()">复制</button>
         <button class="btn btn-sm" onclick="exportMonthlyMd()">导出 .md</button>
       </div>
-      <textarea class="weekly-text" id="monthlyText" readonly placeholder="点击「生成月报文本」后，自动汇总当月各项目的任务、解决方案与复盘要点，可复制或导出为工作目录中的 .md 文件。"></textarea>
+      <textarea class="weekly-text" id="monthlyText" readonly placeholder="点击「生成月报文本」后，自动汇总当月各项目的任务、解决方案与复盘要点；可在上方切换项目，只生成该项目的月报。可复制或导出为工作目录中的 .md 文件。"></textarea>
     </div>
   </section>
 
@@ -648,11 +707,79 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
         <button class="btn btn-sm" onclick="copyStatsText()">复制统计文本</button>
       </div>
       <div class="stat-cards" id="statCards"></div>
-      <div id="statProjects"></div>
-      <div class="today-section" style="margin-top:16px">
-        <h3>近 30 天每日任务量</h3>
-        <div class="bars-wrap"><div class="bars" id="statBars"></div></div>
+    </div>
+
+    <!-- [新增] 工作强度分析：周柱状 + 热力图 + 一周节奏，用来看工作密集分布 -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 12h4l3-8 4 16 3-8h4" stroke="#2f6fed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        工作强度分析
+        <span class="cnt">活跃 = 当日新建任务 + 方案记录</span>
       </div>
+      <div class="today-section">
+        <h3>近 12 周工作强度</h3>
+        <div class="stat-legend"><span><i style="background:var(--primary)"></i>新建任务</span><span><i style="background:var(--green)"></i>方案记录</span></div>
+        <div class="bars-wrap"><div class="wbars" id="statWeekBars"></div></div>
+      </div>
+      <!-- [FIX] 热力图扩到近半年并与一周节奏并排，避免半宽图形单独占一行留下大片空白 -->
+      <div class="chart-grid">
+        <div class="today-section">
+          <h3>每日活跃热力图（近半年）</h3>
+          <div class="heat-wrap">
+            <div class="heat-wd"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+            <div class="heat" id="statHeat"></div>
+          </div>
+          <div class="stat-legend" style="margin-top:8px"><span>少</span>
+            <i style="background:var(--bg)"></i><i style="background:rgba(47,111,237,.25)"></i><i style="background:rgba(47,111,237,.45)"></i><i style="background:rgba(47,111,237,.7)"></i><i style="background:rgba(47,111,237,1)"></i>
+          <span>多</span></div>
+        </div>
+        <div class="today-section">
+          <h3>一周节奏（近半年按星期汇总）</h3>
+          <div id="statWeekday"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- [新增] 任务结构分析：状态环形 + 优先级 + 来源，三等分一行排满 -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#2f6fed" stroke-width="2"/><path d="M12 3v9l7.8 4.5" stroke="#2f6fed" stroke-width="2" stroke-linecap="round"/></svg>
+        任务结构分析
+      </div>
+      <!-- [FIX] 三等分时仅有 3 行的优先级/来源下方留大片空白；改为两列：
+           左＝状态环形图（圆环+图例，高度最高），右＝优先级与来源上下堆叠，两侧高度自然对齐 -->
+      <div class="chart-grid">
+        <div class="today-section">
+          <h3>状态分布</h3>
+          <div class="donut-wrap v"><div class="donut" id="statDonut"></div><div class="donut-leg" id="statDonutLeg"></div></div>
+        </div>
+        <!-- [FIX] 右列整体拉伸到与左侧环形图等高：多出的空间由两小节之间均分，不再沉积在底部留白 -->
+        <div class="stat-stack">
+          <div class="today-section">
+            <h3>优先级分布 <span class="cnt">按状态分段</span></h3>
+            <div id="statPriority"></div>
+          </div>
+          <div class="today-section">
+            <h3>任务来源分布</h3>
+            <div id="statSource"></div>
+          </div>
+        </div>
+      </div>
+      <div class="today-section">
+        <h3>近 6 个月产出趋势</h3>
+        <div class="stat-legend"><span><i style="background:var(--primary)"></i>新建任务</span><span><i style="background:var(--green)"></i>方案记录</span><span><i style="background:var(--orange)"></i>复盘</span></div>
+        <div class="bars-wrap"><div class="wbars" id="statMonthBars"></div></div>
+      </div>
+    </div>
+
+    <!-- [重构] 原先只有完成率进度条，升级为项目健康度表：任务量/完成率/超期/最近活跃 -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="4" height="14" rx="1" stroke="#2f6fed" stroke-width="2"/><rect x="10" y="5" width="4" height="10" rx="1" stroke="#2f6fed" stroke-width="2"/><rect x="16" y="5" width="4" height="7" rx="1" stroke="#2f6fed" stroke-width="2"/></svg>
+        项目健康度
+        <span class="cnt" id="statProjHint"></span>
+      </div>
+      <div id="statProjects"></div>
     </div>
   </section>
 
@@ -2238,13 +2365,24 @@ function buildTaskDateIndex(){
   return map;
 }
 
+/* [新增] 周报/月报导航条的项目筛选下拉：重建 options 但保留用户选中值
+   （与任务列表 #fProject 同一套防重置逻辑，项目被删时回退「全部项目」） */
+function fillPeriodProjSel(selId){
+  var sel=$(selId),prev=sel.value;
+  sel.innerHTML='<option value="">全部项目</option>'+projects.map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>';}).join('');
+  if(prev)sel.value=prev;
+  if(sel.selectedIndex<0)sel.selectedIndex=0;
+  return sel.value;
+}
+
 /* ======================= 17. 周报 ======================= */
 function shiftWeek(n){weekBase=addDays(weekBase,n*7);renderWeekly();}
 function goThisWeek(){weekBase=todayStr();renderWeekly();}
 function renderWeekly(){
   var ws=weekStart(weekBase),we=addDays(ws,6);
   $('weekRange').textContent=ws+' ~ '+we+(ws===weekStart(todayStr())?'（本周）':'');
-  var inWeek=tasks.filter(function(t){return taskInPeriod(t,ws,we);});
+  var fp=fillPeriodProjSel('wProj');
+  var inWeek=tasks.filter(function(t){return taskInPeriod(t,ws,we)&&(!fp||t.projectId===fp);});
   var n=statusCounts(inWeek);
   $('weekStats').innerHTML=
     statCardHtml('c-blue',inWeek.length,'本周任务')
@@ -2252,29 +2390,33 @@ function renderWeekly(){
     +statCardHtml('c-orange',n.doing,'进行中')
     +statCardHtml('c-gray',n.todo,'待处理');
   var h=periodProjectSections(inWeek);
-  if(!inWeek.length)h='<div class="empty">该周没有任务记录。</div>';
+  if(!inWeek.length)h='<div class="empty">'+(fp?('「'+esc(projName(fp))+'」在该周没有任务记录。'):'该周没有任务记录。')+'</div>';
   $('weekBody').innerHTML=h;
 }
 function buildWeeklyText(){
   var ws=weekStart(weekBase),we=addDays(ws,6);
-  var inWeek=tasks.filter(function(t){return taskInPeriod(t,ws,we);});
-  if(!inWeek.length){toast('该周没有任务，无法生成');return;}
+  var fp=$('wProj').value;
+  var inWeek=tasks.filter(function(t){return taskInPeriod(t,ws,we)&&(!fp||t.projectId===fp);});
+  if(!inWeek.length){toast(fp?('该项目在该周没有任务，无法生成'):'该周没有任务，无法生成');return;}
   var lines=[];
-  lines.push('【运维工作周报】'+ws+' ~ '+we);
+  lines.push('【运维工作周报'+(fp?'·'+projName(fp):'')+'】'+ws+' ~ '+we);
   lines.push('');
   appendPeriodProjectLines(lines,inWeek,ws,we,'本周继续处理');
   var n=statusCounts(inWeek);
-  /* 汇入本周每日复盘要点（疑难点 / 知识点） */
-  var weekRevs=reviews.filter(function(r){return r.date>=ws&&r.date<=we&&(r.issues||r.learned);});
-  if(weekRevs.length){
-    weekRevs.sort(function(a,b){return a.date<b.date?-1:1;});
-    lines.push('');
-    lines.push('◆ 本周每日复盘要点');
-    weekRevs.forEach(function(r){
-      if(r.issues)lines.push('['+r.date+'] 疑难点：'+cleanText(r.issues));
-      if(r.learned)lines.push('['+r.date+'] 知识点：'+cleanText(r.learned));
-      if(r.feelings)lines.push('['+r.date+'] 每日总结：'+cleanText(r.feelings));
-    });
+  /* 汇入本周每日复盘要点（疑难点 / 知识点）：复盘按天记录、不带项目归属，
+     仅「全部项目」视角汇入，避免单项目周报混入其他项目相关内容 */
+  if(!fp){
+    var weekRevs=reviews.filter(function(r){return r.date>=ws&&r.date<=we&&(r.issues||r.learned);});
+    if(weekRevs.length){
+      weekRevs.sort(function(a,b){return a.date<b.date?-1:1;});
+      lines.push('');
+      lines.push('◆ 本周每日复盘要点');
+      weekRevs.forEach(function(r){
+        if(r.issues)lines.push('['+r.date+'] 疑难点：'+cleanText(r.issues));
+        if(r.learned)lines.push('['+r.date+'] 知识点：'+cleanText(r.learned));
+        if(r.feelings)lines.push('['+r.date+'] 每日总结：'+cleanText(r.feelings));
+      });
+    }
   }
   lines.push('——');
   lines.push('本周统计：共 '+inWeek.length+' 项｜完成 '+n.done+' 项｜进行中 '+n.doing+' 项｜待处理 '+n.todo+' 项');
@@ -2291,9 +2433,11 @@ async function exportWeeklyMd(){
   var txt=$('weeklyText').value;
   if(!txt){toast('请先生成周报文本');return;}
   var ws=weekStart(weekBase),we=addDays(ws,6);
+  var fp=$('wProj').value;
+  var fname='运维周报_'+(fp?projName(fp)+'_':'')+ws+'_'+we+'.md';
   try{
-    await writeExportFile('运维周报_'+ws+'_'+we+'.md',txt);
-    toast('已导出到工作目录 exports/运维周报_'+ws+'_'+we+'.md');
+    await writeExportFile(fname,txt);
+    toast('已导出到工作目录 exports/'+fname);
   }catch(e){toast('导出失败：'+(e.message||e.name));}
 }
 
@@ -2303,42 +2447,49 @@ function goThisMonth(){monthBase=todayStr();renderMonthly();}
 function renderMonthly(){
   var rg=monthRangeOf(monthBase),ym=monthBase.slice(0,7);
   $('monthRange').textContent=ym+(ym===todayStr().slice(0,7)?'（本月）':'');
-  var inM=tasks.filter(function(t){return taskInPeriod(t,rg.ws,rg.we);});
+  var fp=fillPeriodProjSel('mProj');
+  var inM=tasks.filter(function(t){return taskInPeriod(t,rg.ws,rg.we)&&(!fp||t.projectId===fp);});
   var n=statusCounts(inM);
-  var mRevs=reviews.filter(function(r){return r.date>=rg.ws&&r.date<=rg.we;});
+  /* 复盘天数卡片仅「全部项目」视角显示：复盘按天记录、不带项目归属 */
+  var mRevs=fp?[]:reviews.filter(function(r){return r.date>=rg.ws&&r.date<=rg.we;});
   $('monthStats').innerHTML=
     statCardHtml('c-blue',inM.length,'本月任务')
     +statCardHtml('c-green',n.done,'已完成')
     +statCardHtml('c-orange',n.doing,'进行中')
     +statCardHtml('c-gray',n.todo,'待处理')
-    +statCardHtml('c-blue',mRevs.length,'复盘天数');
+    +(fp?'':statCardHtml('c-blue',mRevs.length,'复盘天数'));
   var h=periodProjectSections(inM);
-  if(!inM.length)h='<div class="empty">该月没有任务记录。</div>';
+  if(!inM.length)h='<div class="empty">'+(fp?('「'+esc(projName(fp))+'」在该月没有任务记录。'):'该月没有任务记录。')+'</div>';
   $('monthBody').innerHTML=h;
 }
 function buildMonthlyText(){
   var rg=monthRangeOf(monthBase),ym=monthBase.slice(0,7);
-  var inM=tasks.filter(function(t){return taskInPeriod(t,rg.ws,rg.we);});
-  /* 注意：此处判断的是全部 reviews 而非本月复盘，属于原有逻辑，勿改 */
-  if(!inM.length&&!reviews.length){toast('该月没有记录，无法生成');return;}
-  var lines=['【运维工作月报】'+ym,''];
+  var fp=$('mProj').value;
+  var inM=tasks.filter(function(t){return taskInPeriod(t,rg.ws,rg.we)&&(!fp||t.projectId===fp);});
+  /* 注意：此处判断的是全部 reviews 而非本月复盘，属于原有逻辑，勿改；
+     [新增] 选了具体项目时复盘不汇入，守卫只看该项目任务是否为空 */
+  if(fp?!inM.length:(!inM.length&&!reviews.length)){toast(fp?'该项目在该月没有任务，无法生成':'该月没有记录，无法生成');return;}
+  var lines=['【运维工作月报'+(fp?'·'+projName(fp):'')+'】'+ym,''];
   appendPeriodProjectLines(lines,inM,rg.ws,rg.we,'本月继续处理');
   var n=statusCounts(inM);
-  /* 本月复盘与知识点沉淀 */
-  var mRevs=reviews.filter(function(r){return r.date>=rg.ws&&r.date<=rg.we;});
-  var mKnows=knows.filter(function(k){return k.date>=rg.ws&&k.date<=rg.we;});
-  if(mRevs.length||mKnows.length){
-    lines.push('');
-    lines.push('◆ 本月复盘与知识沉淀');
-    lines.push('复盘 '+mRevs.length+' 篇｜新增知识点 '+mKnows.length+' 条');
-    mRevs.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(r){
-      if(r.issues)lines.push('['+r.date+'] 疑难点：'+cleanText(r.issues));
-      if(r.feelings)lines.push('['+r.date+'] 每日总结：'+cleanText(r.feelings));
-    });
-    mKnows.slice(0,10).forEach(function(k){
-      lines.push('['+k.date+'] 知识点：'+cleanText(k.content)+(k.tags&&k.tags.length?'（#'+k.tags.join(' #')+'）':''));
-    });
-    if(mKnows.length>10)lines.push('……等共 '+mKnows.length+' 条，详见工作台「知识库」');
+  /* 本月复盘与知识沉淀：复盘/知识点按天记录、不带项目归属，
+     仅「全部项目」视角汇入，避免单项目月报混入其他项目相关内容 */
+  if(!fp){
+    var mRevs=reviews.filter(function(r){return r.date>=rg.ws&&r.date<=rg.we;});
+    var mKnows=knows.filter(function(k){return k.date>=rg.ws&&k.date<=rg.we;});
+    if(mRevs.length||mKnows.length){
+      lines.push('');
+      lines.push('◆ 本月复盘与知识沉淀');
+      lines.push('复盘 '+mRevs.length+' 篇｜新增知识点 '+mKnows.length+' 条');
+      mRevs.sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(r){
+        if(r.issues)lines.push('['+r.date+'] 疑难点：'+cleanText(r.issues));
+        if(r.feelings)lines.push('['+r.date+'] 每日总结：'+cleanText(r.feelings));
+      });
+      mKnows.slice(0,10).forEach(function(k){
+        lines.push('['+k.date+'] 知识点：'+cleanText(k.content)+(k.tags&&k.tags.length?'（#'+k.tags.join(' #')+'）':''));
+      });
+      if(mKnows.length>10)lines.push('……等共 '+mKnows.length+' 条，详见工作台「知识库」');
+    }
   }
   lines.push('——');
   lines.push('本月统计：共 '+inM.length+' 项｜完成 '+n.done+' 项｜进行中 '+n.doing+' 项｜待处理 '+n.todo+' 项');
@@ -2354,56 +2505,238 @@ async function exportMonthlyMd(){
   if(!requireDir())return;
   var txt=$('monthlyText').value;
   if(!txt){toast('请先生成月报文本');return;}
+  var fp=$('mProj').value;
+  var fname='运维月报_'+(fp?projName(fp)+'_':'')+monthBase.slice(0,7)+'.md';
   try{
-    await writeExportFile('运维月报_'+monthBase.slice(0,7)+'.md',txt);
-    toast('已导出到工作目录 exports/运维月报_'+monthBase.slice(0,7)+'.md');
+    await writeExportFile(fname,txt);
+    toast('已导出到工作目录 exports/'+fname);
   }catch(e){toast('导出失败：'+(e.message||e.name));}
 }
 
 /* ======================= 19. 统计仪表盘 ======================= */
+/* [重构] 统计页升级为数据分析仪表盘：概览卡片 / 12 周强度柱状 / 活跃热力图 / 一周节奏 /
+   状态环形图 / 优先级与来源分布 / 6 个月产出趋势 / 项目健康度表。
+   全部图表用内联 CSS（conic-gradient / flex 条形）手绘，保持零外部依赖。 */
 function statNumbers(){
   var t=todayStr();
   var n=statusCounts(tasks);
   var overdue=tasks.filter(function(x){return overdueDaysOf(x,t)>0;}).length; /* [新增] 超期=未完成且已过预计完成日期 */
-  return {total:tasks.length,done:n.done,doing:n.doing,overdue:overdue,rate:tasks.length?Math.round(n.done*100/tasks.length):0};
+  return {total:tasks.length,done:n.done,doing:n.doing,todo:n.todo,overdue:overdue,rate:tasks.length?Math.round(n.done*100/tasks.length):0};
+}
+/* [新增] 方案记录按日期计数索引（周强度 / 热力图 / 月趋势共用，一次遍历） */
+function solCountIdx(){
+  var map={};
+  tasks.forEach(function(t){(t.solutions||[]).forEach(function(s){var d=solDateOf(s);if(d)map[d]=(map[d]||0)+1;});});
+  return map;
+}
+/* [新增] 某日期闭区间内的方案记录总数 */
+function solCountRange(solIdx,ws,we){
+  var c=0;
+  for(var d in solIdx){if(d>=ws&&d<=we)c+=solIdx[d];}
+  return c;
+}
+/* [新增] 新建任务按日期计数索引（热力图 / 一周节奏共用） */
+function statNewIdx(){
+  var m={};
+  tasks.forEach(function(x){if(x.date)m[x.date]=(m[x.date]||0)+1;});
+  return m;
 }
 function renderStats(){
+  var t=todayStr(),solIdx=solCountIdx(),newIdx=statNewIdx();
+  renderStatCards(t,solIdx);
+  renderStatWeekBars(t,solIdx);
+  renderStatHeat(t,solIdx,newIdx);
+  renderStatWeekday(t,solIdx,newIdx);
+  renderStatDonut();
+  renderStatPriority(t);
+  renderStatSource();
+  renderStatMonth(t,solIdx);
+  renderStatProjects(t);
+}
+function renderStatCards(t,solIdx){
   var s=statNumbers();
-  $('statHint').textContent='· 截至 '+todayStr();
+  $('statHint').textContent='· 截至 '+t;
+  var ws=weekStart(t),we=addDays(ws,6);
+  var weekNew=tasks.filter(function(x){return x.date>=ws&&x.date<=we;}).length;
+  var weekSols=solCountRange(solIdx,ws,we);
   $('statCards').innerHTML=
     statCardHtml('c-blue',s.total,'任务总数')
     +statCardHtml('c-green',s.rate+'%','总完成率')
     +statCardHtml('c-orange',s.doing,'进行中')
     +statCardHtml('c-gray',s.overdue,'已超期未完成')
+    +statCardHtml('c-blue',weekNew,'本周新建任务')
+    +statCardHtml('c-green',weekSols,'本周方案记录')
     +statCardHtml('c-blue',reviews.length,'复盘篇数')
     +statCardHtml('c-green',knows.length,'知识点条数');
+}
+/* [新增] 近 12 周双序列柱状图：每周新建任务 vs 方案记录，直观看工作密集分布 */
+function renderStatWeekBars(t,solIdx){
+  var weeks=[],mx=1,i;
+  for(i=11;i>=0;i--){
+    var ws=weekStart(addDays(t,-7*i)),we=addDays(ws,6);
+    var nt=tasks.filter(function(x){return x.date>=ws&&x.date<=we;}).length;
+    var sc=solCountRange(solIdx,ws,we);
+    if(nt>mx)mx=nt; if(sc>mx)mx=sc;
+    weeks.push({ws:ws,nt:nt,sc:sc});
+  }
   var h='';
+  weeks.forEach(function(w){
+    h+='<div class="wcol" title="'+w.ws.slice(5)+' ~ '+addDays(w.ws,6).slice(5)+'：新建 '+w.nt+' · 方案 '+w.sc+'">'
+      +'<div class="wb" style="height:'+Math.max(2,Math.round(w.nt*88/mx))+'px;background:var(--primary)"></div>'
+      +'<div class="wb" style="height:'+Math.max(2,Math.round(w.sc*88/mx))+'px;background:var(--green)"></div>'
+      +'<span class="wlab">'+(+w.ws.slice(5,7))+'/'+(+w.ws.slice(8,10))+'</span></div>';
+  });
+  $('statWeekBars').innerHTML=h;
+}
+/* [新增] GitHub 风格活跃热力图：列=周、行=周一~周日，颜色深浅=当日新建任务+方案记录数。
+   近半年 26 周（[FIX] 原 12 周太窄，半宽列里留白多）；颜色用平方根分档（低频段差异更明显）；未来的格子隐藏。 */
+function renderStatHeat(t,solIdx,newIdx){
+  var start=addDays(weekStart(t),-175); /* 本周一往前推 25 周，保证最后一列正好是当前周 */
+  var vals=[],mx=1,c,r;
+  for(c=0;c<26;c++){
+    for(r=0;r<7;r++){
+      var d=addDays(start,7*c+r);
+      var v=d>t?-1:((newIdx[d]||0)+(solIdx[d]||0));
+      vals.push(v); if(v>mx)mx=v;
+    }
+  }
+  var h='';
+  for(c=0;c<26;c++){
+    h+='<div class="hcol">';
+    for(r=0;r<7;r++){
+      var v=vals[c*7+r];
+      if(v<0){h+='<div class="hc fut"></div>';continue;}
+      var d=addDays(start,7*c+r);
+      if(v===0){h+='<div class="hc" title="'+d+'：无记录"></div>';continue;} /* 零活跃保持默认底色，不叠透明色 */
+      var op=0.18+0.82*Math.sqrt(v/mx);
+      h+='<div class="hc" style="background:rgba(47,111,237,'+op.toFixed(2)+')" title="'+d+'：新建 '+(newIdx[d]||0)+' · 方案 '+(solIdx[d]||0)+'"></div>';
+    }
+    h+='</div>';
+  }
+  $('statHeat').innerHTML=h;
+}
+/* [新增] 一周节奏：近半年（26 周）按星期汇总活跃量，看一周内哪几天最忙（驻场常见周一/周三例会高峰） */
+function renderStatWeekday(t,solIdx,newIdx){
+  var wd=[0,0,0,0,0,0,0],names=['周一','周二','周三','周四','周五','周六','周日'],total=0,i;
+  for(i=181;i>=0;i--){
+    var d=addDays(t,-i);
+    var w=(new Date(d+'T00:00:00').getDay()+6)%7;
+    var v=(newIdx[d]||0)+(solIdx[d]||0);
+    wd[w]+=v; total+=v;
+  }
+  var mx=1; wd.forEach(function(v){if(v>mx)mx=v;});
+  var h='';
+  for(i=0;i<7;i++){
+    var pct=total?Math.round(wd[i]*100/total):0;
+    h+='<div class="hrow"><span class="hname">'+names[i]+'</span>'
+      +'<div class="htrack"><i style="width:'+(wd[i]?Math.max(3,Math.round(wd[i]*100/mx)):0)+'%;background:var(--primary);border-radius:8px"></i></div>'
+      +'<span class="hval"><b>'+wd[i]+'</b> · '+pct+'%</span></div>';
+  }
+  $('statWeekday').innerHTML=h;
+}
+/* [新增] 状态环形图：conic-gradient 扇区 + 中心完成率，右侧图例（含超期警示行） */
+function renderStatDonut(){
+  var s=statNumbers(),el=$('statDonut');
+  if(s.total){
+    var a=s.done*100/s.total,b=(s.done+s.doing)*100/s.total;
+    el.style.background='conic-gradient(var(--green) 0% '+a+'%,var(--primary) '+a+'% '+b+'%,var(--gray) '+b+'% 100%)';
+  }else{
+    el.style.background='var(--bg)';
+  }
+  el.innerHTML='<div class="donut-in"><b>'+s.rate+'%</b><span>完成率</span></div>';
+  $('statDonutLeg').innerHTML=
+    '<div class="li"><i style="background:var(--green)"></i>已完成<b>'+s.done+'</b></div>'
+    +'<div class="li"><i style="background:var(--primary)"></i>进行中<b>'+s.doing+'</b></div>'
+    +'<div class="li"><i style="background:var(--gray)"></i>待处理<b>'+s.todo+'</b></div>'
+    +'<div class="li"><i style="background:var(--red)"></i>其中超期<b>'+s.overdue+'</b></div>';
+}
+/* [新增] 优先级分布：每档按 已完成/进行中/待处理 分段堆叠（长度按最大档归一），超期数红字提示 */
+function renderStatPriority(t){
+  var ps=['P0','P1','P2'],mx=1;
+  var rows=ps.map(function(p){
+    var mine=tasks.filter(function(x){return x.priority===p;});
+    var n=statusCounts(mine);
+    var od=mine.filter(function(x){return overdueDaysOf(x,t)>0;}).length;
+    if(mine.length>mx)mx=mine.length;
+    return {p:p,total:mine.length,done:n.done,doing:n.doing,todo:n.todo,od:od};
+  });
+  var h='';
+  rows.forEach(function(r){
+    var seg=function(cnt,color){return cnt?'<i style="width:'+(cnt*100/mx)+'%;background:'+color+'"></i>':'';};
+    h+='<div class="hrow"><span class="hname">'+r.p+'</span>'
+      +'<div class="htrack">'+seg(r.done,'var(--green)')+seg(r.doing,'var(--primary)')+seg(r.todo,'var(--gray)')+'</div>'
+      +'<span class="hval"><b>'+r.total+'</b> 项'+(r.od?' · <span style="color:var(--red);font-weight:700">'+r.od+' 超期</span>':'')+'</span></div>';
+  });
+  var unk=tasks.filter(function(x){return ps.indexOf(x.priority)<0;}).length;
+  if(unk)h+='<div style="font-size:12px;color:var(--text3);margin-top:4px">另有 '+unk+' 项未设优先级</div>';
+  $('statPriority').innerHTML=h;
+}
+/* [新增] 任务来源分布：业主提出 / 内部巡检 / 其他（含自定义来源），看工单主要从哪来 */
+function renderStatSource(){
+  if(!tasks.length){$('statSource').innerHTML='<div class="empty">暂无任务</div>';return;}
+  var m={};
+  tasks.forEach(function(x){var k=x.source||'未填写';m[k]=(m[k]||0)+1;});
+  var arr=[]; for(var k in m)arr.push({k:k,n:m[k]});
+  arr.sort(function(a,b){return b.n-a.n;});
+  var mx=arr[0].n,h='';
+  arr.forEach(function(x){
+    h+='<div class="hrow"><span class="hname">'+esc(x.k)+'</span>'
+      +'<div class="htrack"><i style="width:'+Math.round(x.n*100/mx)+'%;background:var(--primary);border-radius:8px"></i></div>'
+      +'<span class="hval"><b>'+x.n+'</b> · '+Math.round(x.n*100/tasks.length)+'%</span></div>';
+  });
+  $('statSource').innerHTML=h;
+}
+/* [新增] 近 6 个月产出趋势：每月 新建任务/方案记录/复盘 三序列柱状，看月度负荷与产出 */
+function renderStatMonth(t,solIdx){
+  var months=[],mx=1,i;
+  for(i=5;i>=0;i--){
+    var base=addMonths(t,-i),rg=monthRangeOf(base);
+    var nt=tasks.filter(function(x){return x.date>=rg.ws&&x.date<=rg.we;}).length;
+    var sc=solCountRange(solIdx,rg.ws,rg.we);
+    var rv=reviews.filter(function(r){return r.date>=rg.ws&&r.date<=rg.we;}).length;
+    if(nt>mx)mx=nt; if(sc>mx)mx=sc; if(rv>mx)mx=rv;
+    months.push({ym:base.slice(0,7),nt:nt,sc:sc,rv:rv});
+  }
+  var h='';
+  months.forEach(function(mo){
+    var bh=function(v){return Math.max(2,Math.round(v*88/mx));};
+    h+='<div class="wcol" title="'+mo.ym+'：新建 '+mo.nt+' · 方案 '+mo.sc+' · 复盘 '+mo.rv+'">'
+      +'<div class="wb" style="height:'+bh(mo.nt)+'px;background:var(--primary)"></div>'
+      +'<div class="wb" style="height:'+bh(mo.sc)+'px;background:var(--green)"></div>'
+      +'<div class="wb" style="height:'+bh(mo.rv)+'px;background:var(--orange)"></div>'
+      +'<span class="wlab">'+(+mo.ym.slice(5))+'月</span></div>';
+  });
+  $('statMonthBars').innerHTML=h;
+}
+/* [重构] 原先只有各项目完成率进度条，升级为健康度表：任务量/完成率/超期数/最近活跃日 */
+function renderStatProjects(t){
+  if(!projects.length){$('statProjHint').textContent='';$('statProjects').innerHTML='<div class="empty">暂无项目</div>';return;}
+  $('statProjHint').textContent='· '+projects.length+' 个项目';
+  var h='<div class="proj-hrow"><span class="ph-head">项目</span><span class="ph-head">任务</span><span class="ph-head">完成率</span><span class="ph-head">超期</span><span class="ph-head">最近活跃</span></div>';
   projects.forEach(function(p){
     var st=projectTaskStats(p);
-    h+='<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;gap:8px"><span>'+esc(p.name)+'（'+st.mine.length+' 项）</span><span style="color:var(--green);font-weight:700;flex:none">'+st.pct+'%</span></div><div class="progress"><i style="width:'+st.pct+'%"></i></div></div>';
+    var od=st.mine.filter(function(x){return overdueDaysOf(x,t)>0;}).length;
+    var last='';
+    st.mine.forEach(function(x){
+      if(x.date>last)last=x.date;
+      (x.solutions||[]).forEach(function(s){var d=solDateOf(s);if(d>last)last=d;});
+    });
+    h+='<div class="proj-hrow">'
+      +'<span class="hname">'+esc(p.name)+'</span>'
+      +'<span class="hval" style="text-align:left"><b>'+st.mine.length+'</b></span>'
+      +'<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:var(--text3)">完成 '+st.done+'</span><b style="color:var(--green)">'+st.pct+'%</b></div><div class="progress"><i style="width:'+st.pct+'%"></i></div></div>'
+      +'<span class="hval">'+(od?'<span style="color:var(--red);font-weight:700">'+od+'</span>':'<span style="color:var(--green)">0</span>')+'</span>'
+      +'<span class="hval">'+(last||'—')+'</span></div>';
   });
-  $('statProjects').innerHTML=h?'<div class="today-section"><h3>各项目任务完成率</h3>'+h+'</div>':'';
-  var t=todayStr();
-  var idx=buildTaskDateIndex();
-  var counts=[];
-  for(var i=29;i>=0;i--){
-    var d=addDays(t,-i);
-    counts.push({d:d,c:(idx[d]||[]).length});
-  }
-  var mx=1;
-  counts.forEach(function(x){if(x.c>mx)mx=x.c;});
-  var bars='';
-  counts.forEach(function(x){
-    var hh=Math.max(3,Math.round(x.c*80/mx));
-    bars+='<div class="bar" style="height:'+hh+'px" title="'+x.d+'：'+x.c+' 项"><span>'+x.d.slice(8)+'</span></div>';
-  });
-  $('statBars').innerHTML=bars;
+  $('statProjects').innerHTML=h;
 }
 function copyStatsText(){
-  var s=statNumbers();
-  var lines=['【运维工作台统计】截至 '+todayStr(),''];
-  lines.push('任务总数：'+s.total+'｜已完成：'+s.done+'（'+s.rate+'%）｜进行中：'+s.doing+'｜已超期未完成：'+s.overdue);
+  var t=todayStr(),s=statNumbers(),solIdx=solCountIdx();
+  var lines=['【运维工作台统计】截至 '+t,''];
+  lines.push('任务总数：'+s.total+'｜已完成：'+s.done+'（'+s.rate+'%）｜进行中：'+s.doing+'｜待处理：'+s.todo+'｜已超期未完成：'+s.overdue);
   lines.push('复盘：'+reviews.length+' 篇｜知识点：'+knows.length+' 条');
+  var ws=weekStart(t),we=addDays(ws,6);
+  lines.push('本周：新建任务 '+tasks.filter(function(x){return x.date>=ws&&x.date<=we;}).length+'｜方案记录 '+solCountRange(solIdx,ws,we));
   if(projects.length){
     lines.push('');
     lines.push('—— 各项目 ——');
