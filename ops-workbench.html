@@ -329,6 +329,13 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
 .know-md blockquote{border-left:3px solid var(--primary); margin:6px 0; padding:2px 12px; color:var(--text2);}
 .know-md hr{border:none; border-top:1px solid var(--line); margin:10px 0;}
 .know-md a{color:var(--primary);}
+/* [新增] 文件库/知识库 md 里的图片：限宽防撑爆、可点击放大 */
+.know-md img.md-img{max-width:100%; max-height:420px; border:1px solid var(--line); border-radius:8px; margin:6px 8px 2px 0; cursor:zoom-in;}
+.know-md img.md-img:hover{border-color:var(--primary);}
+/* [新增] 文件库列表行：默认只展示文件名 */
+.doc-name{font-size:14px; font-weight:600; color:var(--text); display:flex; align-items:center; gap:7px; word-break:break-all; min-width:0;}
+.doc-name svg{flex:none; color:var(--primary);}
+.doc-imgcnt{font-size:11px; color:var(--text3); border:1px solid var(--line); border-radius:6px; padding:1px 6px; flex:none;}
 .know-md.collapse{max-height:132px; overflow:hidden; position:relative;}
 .know-md.collapse::after{content:""; position:absolute; left:0; right:0; bottom:0; height:40px; background:linear-gradient(transparent,#fff);}
 
@@ -431,6 +438,10 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
   <button class="tab" data-tab="know">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 6.25v13m0-13A6.25 6.25 0 005 12.75m14 0A6.25 6.25 0 0012 6.25m0 13a6.25 6.25 0 01-6-4.5m12 0a6.25 6.25 0 01-6 4.5M5.5 8.5l2 2m9-2l-2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     知识库
+  </button>
+  <button class="tab" data-tab="docs">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    文件库
   </button>
   <button class="tab" data-tab="stats">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 20V10m5 10V4m5 16v-7m5 7V8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -696,6 +707,33 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
       </div>
       <div class="tag-chips" id="knowTags"></div>
       <div id="knowList"></div>
+    </div>
+  </section>
+
+  <!-- ================= 文件库 ================= -->
+  <!-- 存放「不是知识点、但以后可能再用」的解决方案文档：md 原文件落盘工作目录 docs/，图片落盘 docs/images/，
+       data.json 只存元数据（文件名/标签/路径）。默认列表只显示文件名，点「预览」弹窗渲染。 -->
+  <section class="panel" id="tab-docs">
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke="#2f6fed" stroke-width="2" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke="#2f6fed" stroke-width="2" stroke-linecap="round"/></svg>
+        文件库
+        <span class="cnt" id="docCnt"></span>
+        <span class="spacer"></span>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('docFile').click()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          上传文档
+        </button>
+        <input type="file" id="docFile" multiple accept=".md,.markdown,.txt,image/*" style="display:none">
+      </div>
+      <div class="hint" style="margin:0 0 10px; max-width:none; padding:8px 12px;">
+        上传 .md / .markdown / .txt 解决方案文档；如文中引用了本地图片，把图片文件一起选中上传（按文件名自动关联），图片会存入工作目录 docs/images/。
+      </div>
+      <div class="filters" style="grid-template-columns:1fr; margin-bottom:10px;">
+        <input type="text" id="docSearch" placeholder="搜索文件库：文件名 / 标签…" oninput="renderDocs()">
+      </div>
+      <div class="tag-chips" id="docTags"></div>
+      <div id="docList"></div>
     </div>
   </section>
 
@@ -977,6 +1015,41 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
   </div>
 </div>
 
+<!-- ================= 文件库：文档预览弹窗 ================= -->
+<div class="mask" id="docPvMask">
+  <div class="modal" style="max-width:860px; width:94%; max-height:88vh; display:flex; flex-direction:column;">
+    <div class="modal-head"><h2 id="docPvName" style="font-size:16px; word-break:break-all;"></h2>
+      <button class="btn btn-icon" onclick="closeDocPreview()" aria-label="关闭">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="modal-sec" style="flex:1; overflow-y:auto;">
+      <div class="know-md" id="docPvBody"></div>
+    </div>
+    <div class="modal-foot" style="flex:none;">
+      <button class="btn" onclick="downloadDoc(currentDocId)">下载原文</button>
+      <button class="btn btn-primary" onclick="closeDocPreview()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 文件库：重命名 / 标签编辑弹窗 ================= -->
+<div class="mask" id="docEditMask">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head"><h2 id="demTitle">编辑文档信息</h2>
+      <button class="btn btn-icon" onclick="$('docEditMask').classList.remove('show')" aria-label="关闭">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="modal-sec"><label>文件名（改名将同步重命名工作目录中的文件）</label><input type="text" id="demName" placeholder="例如：TongWeb更新license.md"></div>
+    <div class="modal-sec"><label>标签（用逗号或空格分隔，可多个）</label><input type="text" id="demTags" placeholder="例如：中间件, license, TongWeb"></div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="saveDocEdit()">保存</button>
+      <button class="btn" onclick="$('docEditMask').classList.remove('show')">取消</button>
+    </div>
+  </div>
+</div>
+
 <!-- ================= 日期详情弹窗 ================= -->
 <div class="mask" id="dayMask">
   <div class="modal" style="max-width:560px">
@@ -1077,6 +1150,12 @@ function addMonthsKeepDay(str,n){
 }
 function monthRangeOf(base){var ms=base.slice(0,7)+'-01';var dim=new Date(+base.slice(0,4),+base.slice(5,7),0).getDate();return {ws:ms,we:base.slice(0,7)+'-'+p2(dim)};}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';return (b/1048576).toFixed(1)+' MB';}
+/* [新增] ArrayBuffer → b64（分块拼接避免栈溢出），文件库图片导出用 */
+function bufToB64(buf){
+  var bytes=new Uint8Array(buf),bin='',chunk=32768;
+  for(var i=0;i<bytes.length;i+=chunk)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk));
+  return btoa(bin);
+}
 /* 中文序号（周报/月报「一、二、…」），超出表则回退数字 */
 function cn(n){return ['一','二','三','四','五','六','七','八','九','十'][n-1]||n;}
 /* 文本清洗：合并行内多余空格/Tab 为单空格；去掉每行首尾空白；保留 \n 换行。用于周报/月报里全文输出方案/复盘/知识点 */
@@ -1111,6 +1190,11 @@ function fsApiOk(){return !!window.showDirectoryPicker;} /* [重构] 浏览器�
 /* ======================= 3. 轻量 Markdown 渲染 ======================= */
 /* 零依赖，覆盖常见语法：标题/加粗/斜体/行内码/代码块/列表/引用/链接/分隔线 */
 function mdInline(s){
+  /* [新增] 图片语法 ![]()：先于链接处理。src 已被 escHtml 转义（" 会变 &quot;），属性安全；
+     点击复用全局图片预览层放大查看（文件库预览时 src 为 pebbleimg:// 占位符已在渲染前替换成 blob URL） */
+  s=s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g,function(m,alt,src){
+    return '<img class="md-img" src="'+src+'" alt="'+alt+'" loading="lazy" onclick="previewImgUrl(this.src)">';
+  });
   s=s.replace(/`([^`]+)`/g,function(m,c){return '<code>'+c+'</code>';});
   s=s.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
   s=s.replace(/\*([^*\s][^*]*)\*/g,'<i>$1</i>');
@@ -1168,7 +1252,7 @@ function copyCodeBlock(btn){
 }
 
 /* ======================= 4. 全局状态 ======================= */
-var projects=[],tasks=[],reviews=[],knows=[],meta={sample:false};
+var projects=[],tasks=[],reviews=[],knows=[],docs=[],meta={sample:false};
 var currentTaskId=null,currentProjId=null,currentKnowId=null;
 var editSolId=null; // [新增] 方案记录内联编辑：当前正在编辑的那条记录 id（同时只编辑一条）
 var reviewBase=todayStr(),weekBase=todayStr(),monthBase=todayStr(),calBase=todayStr(),dayBase=todayStr();
@@ -1269,7 +1353,7 @@ async function readDataFile(){
 }
 async function writeDataNow(){
   try{
-    var txt=JSON.stringify({version:2,updatedAt:new Date().toISOString(),meta:meta,projects:projects,tasks:tasks,reviews:reviews,knows:knows},null,1);
+    var txt=JSON.stringify({version:2,updatedAt:new Date().toISOString(),meta:meta,projects:projects,tasks:tasks,reviews:reviews,knows:knows,docs:docs},null,1);
     var fh=await dirHandle.getFileHandle('data.json',{create:true});
     var w=await fh.createWritable();
     await w.write(new Blob([txt],{type:'application/json'}));
@@ -1295,7 +1379,7 @@ async function pruneBackups(dir,prefix,keep){
 async function writeBackupSnapshot(tag,text){
   var ts=new Date();
   var fname='data_'+(tag?tag+'_':'')+ts.getFullYear()+p2(ts.getMonth()+1)+p2(ts.getDate())+'_'+p2(ts.getHours())+p2(ts.getMinutes())+p2(ts.getSeconds())+'.json';
-  var txt=text||JSON.stringify({version:2,updatedAt:new Date().toISOString(),meta:meta,projects:projects,tasks:tasks,reviews:reviews,knows:knows},null,1);
+  var txt=text||JSON.stringify({version:2,updatedAt:new Date().toISOString(),meta:meta,projects:projects,tasks:tasks,reviews:reviews,knows:knows,docs:docs},null,1);
   await writeJsonFile(BACKUP_DIR,fname,txt);
   return fname;
 }
@@ -1355,6 +1439,13 @@ function normalizeData(d){
   });
   reviews.forEach(function(r){r.atts=r.atts||[];if(!r.date)r.date=r.createdAt||todayStr();});
   knows.forEach(function(k){k.tags=k.tags||[];if(!k.date)k.date=k.createdAt||todayStr();});
+  /* [新增] 文件库：md 文档元数据兜底（正文与图片是磁盘真实文件，这里只存索引信息） */
+  docs=d.docs||[];
+  docs.forEach(function(x){
+    x.tags=x.tags||[];x.imgs=x.imgs||[];
+    if(!x.name)x.name=(x.file||'').split('/').pop()||'未命名.md';
+    if(!x.date)x.date=x.createdAt||todayStr();
+  });
 }
 async function initData(){
   var d=await readDataFile();
@@ -1389,7 +1480,7 @@ async function migrateOldVersion(){
     var d=JSON.parse(raw);
     normalizeData(d);
     /* 保持原迁移范围：旧版仅迁移项目 / 任务 / 任务附件，复盘与知识点不迁（原逻辑如此，勿改） */
-    reviews=[];knows=[];
+    reviews=[];knows=[];docs=[];
     meta={sample:false};
     var files=await readOldFilesDB();
     for(var i=0;i<files.length;i++){
@@ -1587,6 +1678,7 @@ function seedSample(){
     {id:'sp-k2',content:'连接池 maxWait 需小于应用侧调用超时，否则会线程堆积拖垮服务。',tags:['数据库'],date:y,createdAt:y,updatedAt:y}
   ];
   meta={sample:true};
+  docs=[]; /* [新增] 文件库没有示例数据，保持空数组 */
 }
 function clearSample(){
   askConfirm('清空示例数据','将删除全部示例项目与示例任务，开始录入你的真实工作。确定？',async function(){
@@ -2280,6 +2372,234 @@ function collectKnow(){
   persist();
   toast('已收录 '+added+' 条，可到「知识库」补标签');
   activateTab('know');
+}
+
+/* ======================= 14.5 文件库（解决方案文档：md 落盘 docs/，图片落盘 docs/images/） ======================= */
+/* 与附件同一套架构：data.json 只存元数据（文件名/标签/图片索引），正文与图片是磁盘真实文件。
+   md 里的图片引用在上传时被改写为 pebbleimg://<图片id> 占位符，预览时再替换成 blob URL 渲染。 */
+var currentDocId=null;
+function docById(id){for(var i=0;i<docs.length;i++){if(docs[i].id===id)return docs[i];}return null;}
+/* 通用路径读取（支持 docs/xxx.md、docs/images/yyy.png 两级）：与 getAttFile 分开，不动附件逻辑 */
+async function getPathFile(path){
+  var parts=String(path).split('/'),dh=dirHandle;
+  for(var i=0;i<parts.length-1;i++)dh=await dh.getDirectoryHandle(parts[i]);
+  var fh=await dh.getFileHandle(parts[parts.length-1]);
+  return fh;
+}
+async function readDocText(path){
+  var f=await (await getPathFile(path)).getFile();
+  return await f.text();
+}
+async function writeWorkFile(relPath,blob){
+  var parts=relPath.split('/'),dh=dirHandle;
+  for(var i=0;i<parts.length-1;i++)dh=await dh.getDirectoryHandle(parts[i],{create:true});
+  var fh=await dh.getFileHandle(parts[parts.length-1],{create:true});
+  var w=await fh.createWritable();
+  await w.write(blob);await w.close();
+  return relPath;
+}
+async function removeWorkFile(path){
+  try{
+    var parts=String(path).split('/'),dh=dirHandle;
+    for(var i=0;i<parts.length-1;i++)dh=await dh.getDirectoryHandle(parts[i]);
+    await dh.removeEntry(parts[parts.length-1]);
+  }catch(e){}
+}
+async function getDocImgUrl(img){
+  if(urlCache[img.id])return urlCache[img.id];
+  var f=await (await getPathFile(img.file)).getFile();
+  var u=URL.createObjectURL(f);
+  urlCache[img.id]=u;
+  return u;
+}
+/* md 图片点击放大：复用全局 img-preview 遮罩层 */
+function previewImgUrl(u){$('imgPreviewEl').src=u;$('imgPreview').classList.add('show');}
+/* 图片引用正则：![alt](src)，与 mdInline 同一规则 */
+var DOC_IMG_RE=/!\[([^\]]*)\]\(([^)\s]+)\)/g;
+function docImgBase(src){
+  try{return decodeURIComponent(String(src).replace(/[?#].*$/,'').split('/').pop()||'').toLowerCase();}catch(e){return String(src).split('/').pop().toLowerCase();}
+}
+/* 上传：md 文件 + 一起选中的图片（按引用中的文件名自动关联）。同名文件已存在时拒绝，避免误覆盖 */
+async function uploadDocFiles(files){
+  if(!requireDir())return;
+  var list=Array.prototype.slice.call(files||[]);
+  if(!list.length)return;
+  var mds=[],imgs=[];
+  list.forEach(function(f){
+    var n=String(f.name||'').toLowerCase();
+    if(/\.(md|markdown|txt)$/.test(n))mds.push(f);
+    else if(/^image\//.test(f.type)||/\.(png|jpe?g|gif|bmp|webp|svg)$/.test(n))imgs.push(f);
+  });
+  if(!mds.length){toast('请选择 .md / .markdown / .txt 文件（图片可与 md 一起选中上传）');return;}
+  var imgByName={};
+  imgs.forEach(function(f){imgByName[f.name.toLowerCase()]=f;});
+  var added=0,missTotal=0,skip=0;
+  for(var i=0;i<mds.length;i++){
+    var f=mds[i];
+    if(f.size>5*1024*1024){toast('「'+f.name+'」超过 5MB，已跳过');skip++;continue;}
+    var dup=docs.some(function(x){return x.name===f.name;});
+    if(dup){toast('「'+f.name+'」已存在同名文件，请先删除旧文件或先重命名');skip++;continue;}
+    var txt=await f.text();
+    if(!txt.trim()){toast('「'+f.name+'」内容为空，已跳过');skip++;continue;}
+    var doc={id:uid(),name:f.name,tags:[],imgs:[],date:todayStr(),createdAt:todayStr(),file:''};
+    /* 第一遍：收集图片引用并落盘图片（同一图片多处引用共用一份文件） */
+    var rewrite={},miss,ref;
+    DOC_IMG_RE.lastIndex=0;
+    while((ref=DOC_IMG_RE.exec(txt))){
+      var base=docImgBase(ref[2]);
+      var imf=imgByName[base];
+      if(!imf)continue;
+      if(!rewrite[base]){
+        var iid=uid();
+        var fname='img_'+iid+'_'+safeName(imf.name);
+        try{await writeWorkFile('docs/images/'+fname,imf);}catch(e){continue;}
+        doc.imgs.push({id:iid,name:imf.name,file:'docs/images/'+fname});
+        rewrite[base]='pebbleimg://'+iid;
+      }
+    }
+    /* 第二遍：把匹配到的引用改写为 pebbleimg:// 占位符，未匹配的保持原文 */
+    txt=txt.replace(DOC_IMG_RE,function(m,alt,src){
+      var base=docImgBase(src);
+      return rewrite[base]?'!['+alt+']('+rewrite[base]+')':m;
+    });
+    /* 统计未匹配的图片引用数（去重后），提醒用户补充上传 */
+    miss=0;
+    DOC_IMG_RE.lastIndex=0;
+    var seen={};
+    while((ref=DOC_IMG_RE.exec(txt))){var b2=docImgBase(ref[2]);if(!rewrite[b2]&&!seen[b2]){miss++;seen[b2]=1;}}
+    missTotal+=miss;
+    var fname=doc.id+'_'+safeName(doc.name);
+    try{doc.file=await writeWorkFile('docs/'+fname,new Blob([txt],{type:'text/markdown'}));}
+    catch(e){toast('写入 docs/ 失败：'+(e.message||e.name));continue;}
+    docs.push(doc);added++;
+  }
+  if(added){
+    persist();
+    renderDocs();
+    var msg='已收录 '+added+' 篇文档，可点「编辑」补标签';
+    if(missTotal)msg+='；有 '+missTotal+' 处图片引用未找到对应文件，请确认图片是否一起上传';
+    toast(msg);
+  }else if(!skip){toast('没有可收录的 md 文件');}
+}
+/* 列表：默认只显示文件名 + 标签 + 日期；支持文件名/标签搜索与标签过滤 */
+function renderDocs(){
+  if(!dirHandle)return;
+  $('docCnt').textContent=docs.length?('共 '+docs.length+' 篇'):'';
+  var kw=($('docSearch').value||'').trim().toLowerCase();
+  var tagMap={},i;
+  docs.forEach(function(x){(x.tags||[]).forEach(function(t){tagMap[t]=(tagMap[t]||0)+1;});});
+  var tags=Object.keys(tagMap).sort();
+  docTagListCache=tags; /* [FIX] chip 按索引传参，避免标签名含引号时拼坏 onclick */
+  var chips='<button class="tag-chip all'+(docFilterTag?'':' active')+'" onclick="toggleDocTag(-1)" title="不按标签过滤，搜索全部文档">全部 ('+docs.length+')</button>';
+  tags.forEach(function(t,i){
+    chips+='<button class="tag-chip'+(docFilterTag===t?' active':'')+'" onclick="toggleDocTag('+i+')"># '+esc(t)+' ('+tagMap[t]+')</button>';
+  });
+  $('docTags').innerHTML=chips;
+  var list=docs.filter(function(x){
+    if(docFilterTag&&(x.tags||[]).indexOf(docFilterTag)<0)return false;
+    if(!kw)return true;
+    if(x.name.toLowerCase().indexOf(kw)>=0)return true;
+    return (x.tags||[]).some(function(t){return t.toLowerCase().indexOf(kw)>=0;});
+  });
+  list.sort(function(a,b){return a.date<b.date?1:(a.date>b.date?-1:(a.createdAt<b.createdAt?1:-1));});
+  var h='';
+  list.forEach(function(x){
+    var nImg=(x.imgs||[]).length;
+    h+='<div class="task-full"><div class="tf-top">'
+      +'<div class="doc-name">'+ICON.attFile+esc(x.name)+(nImg?'<span class="doc-imgcnt">'+nImg+' 图</span>':'')+'</div></div>'
+      +'<div class="tf-foot">'
+      +'<span>'+x.date+'</span>'
+      +(x.tags||[]).map(function(t){return '<span class="ktag"># '+esc(t)+'</span>';}).join('')
+      +'<span style="flex:1"></span>'
+      +'<button class="btn btn-sm btn-primary" onclick="openDocPreview(\''+x.id+'\')">预览</button>'
+      +'<button class="btn btn-sm" onclick="openDocEdit(\''+x.id+'\')">编辑</button>'
+      +'<button class="btn btn-sm" onclick="downloadDoc(\''+x.id+'\')">下载</button>'
+      +'<button class="btn btn-sm btn-danger" onclick="deleteDoc(\''+x.id+'\')">删除</button>'
+      +'</div></div>';
+  });
+  if(!list.length){
+    h='<div class="empty">'+(kw||docFilterTag
+      ?'没有匹配的文档，点上方「全部」可查看全部 '+docs.length+' 篇。'
+      :'文件库还是空的。点右上角「上传文档」，把总结好的 .md 文件（连同文中引用的图片）传进来，以后随时预览。')+'</div>';
+  }
+  $('docList').innerHTML=h;
+}
+var docFilterTag=null,docTagListCache=[];
+function toggleDocTag(i){docFilterTag=(i===-1?null:(docTagListCache[i]||null));renderDocs();}
+/* 预览：读盘取原文 → 图片占位符替换为 blob URL → mdRender 渲染 */
+async function openDocPreview(id){
+  if(!requireDir())return;
+  var x=docById(id);if(!x)return;
+  currentDocId=id;
+  $('docPvName').textContent=x.name;
+  $('docPvBody').innerHTML='<div class="empty">加载中…</div>';
+  $('docPvMask').classList.add('show');
+  try{
+    var txt=await readDocText(x.file);
+    var urlMap={},ims=x.imgs||[];
+    for(var i=0;i<ims.length;i++){
+      try{urlMap['pebbleimg://'+ims[i].id]=await getDocImgUrl(ims[i]);}catch(e){}
+    }
+    txt=String(txt).replace(/pebbleimg:\/\/([A-Za-z0-9]+)/g,function(m,imgId){
+      return urlMap['pebbleimg://'+imgId]||m;
+    });
+    $('docPvBody').innerHTML=mdRender(txt);
+  }catch(e){
+    $('docPvBody').innerHTML='<div class="empty">读取文件失败：'+esc(e.message||e.name)+'。请检查工作目录中 docs/ 是否被移动或删除。</div>';
+  }
+}
+function closeDocPreview(){$('docPvMask').classList.remove('show');$('docPvBody').innerHTML='';}
+/* 编辑：改文件名（同步重命名磁盘文件）与标签 */
+var editDocId=null;
+function openDocEdit(id){
+  var x=docById(id);if(!x)return;
+  editDocId=id;
+  $('demName').value=x.name;
+  $('demTags').value=(x.tags||[]).join('，');
+  $('docEditMask').classList.add('show');
+}
+async function saveDocEdit(){
+  var x=docById(editDocId);if(!x)return;
+  var name=$('demName').value.trim();
+  if(!name){toast('文件名不能为空');return;}
+  if(!/\.(md|markdown|txt)$/i.test(name))name+='.md';
+  var tags=$('demTags').value.split(/[,，、\s]+/).map(function(t){return t.trim();}).filter(function(t){return !!t;});
+  var oldName=x.name;x.name=name;x.tags=tags;
+  if(name!==oldName&&x.file){
+    var dup=docs.some(function(d){return d.id!==x.id&&d.name===name;});
+    if(dup){x.name=oldName;toast('已存在同名文件，改名失败');return;}
+    try{
+      var txt=await readDocText(x.file);
+      var newPath=await writeWorkFile('docs/'+x.id+'_'+safeName(name),new Blob([txt],{type:'text/markdown'}));
+      var oldPath=x.file;x.file=newPath;
+      await removeWorkFile(oldPath);
+    }catch(e){x.name=oldName;toast('重命名失败：'+(e.message||e.name));return;}
+  }
+  persist();
+  $('docEditMask').classList.remove('show');
+  renderDocs();
+  toast('已保存');
+}
+/* 下载：把工作目录中的原 md 文件回存到本地（占位符引用会随文件一起带出） */
+async function downloadDoc(id){
+  var x=docById(id);if(!x)return;
+  try{
+    var f=await (await getPathFile(x.file)).getFile();
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(f);
+    a.download=x.name;
+    a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href);},3000);
+  }catch(e){toast('读取文件失败：'+(e.message||e.name));}
+}
+function deleteDoc(id){
+  var x=docById(id);if(!x)return;
+  askConfirm('删除文档','确定删除「'+x.name+'」？工作目录中的 md 文件与已关联的图片文件会一并删除。',async function(){
+    for(var i=0;i<(x.imgs||[]).length;i++){await removeWorkFile(x.imgs[i].file);releaseAttUrl(x.imgs[i].id);}
+    if(x.file)await removeWorkFile(x.file);
+    docs=docs.filter(function(d){return d.id!==id;});
+    persist();renderDocs();toast('已删除');
+  });
 }
 
 /* ======================= 15. 导出 .md（写入工作目录 exports/） ======================= */
@@ -3124,7 +3444,20 @@ async function exportData(){
       try{filesArr.push(await attToExportRecord(rats[s],reviews[r].id));}catch(e){}
     }
   }
-  var payload={version:2,exportedAt:new Date().toISOString(),meta:meta,projects:projects,tasks:tasks,reviews:reviews,knows:knows,files:filesArr};
+  /* [新增] 文件库：md 正文（文本）与图片（b64）一并导出，恢复时可完整重建 docs/ 目录 */
+  var docFilesArr=[],docCount=0;
+  for(var d0=0;d0<docs.length;d0++){
+    var doc=docs[d0];docCount++;
+    try{docFilesArr.push({docId:doc.id,kind:'md',name:doc.file.split('/').pop(),text:await readDocText(doc.file)});}catch(e){}
+    var dims=doc.imgs||[];
+    for(var d1=0;d1<dims.length;d1++){
+      try{
+        var dfile=await (await getPathFile(dims[d1].file)).getFile();
+        docFilesArr.push({docId:doc.id,kind:'img',name:dims[d1].file.split('/').pop(),b64:await bufToB64(await dfile.arrayBuffer())});
+      }catch(e){}
+    }
+  }
+  var payload={version:2,exportedAt:new Date().toISOString(),meta:meta,projects:projects,tasks:tasks,reviews:reviews,knows:knows,docs:docs,docFiles:docFilesArr,files:filesArr};
   var txt=JSON.stringify(payload);
   /* ★ 完整备份只写工作目录 FULL_DIR，不再触发浏览器下载（下载会落到「下载」目录，跟工作空间没关系）。
      与自动快照（BACKUP_DIR，仅数据本体）分目录存放，两类备份含义不同互不干扰。 */
@@ -3134,7 +3467,7 @@ async function exportData(){
     await writeJsonFile(FULL_DIR,fname,txt);
     await pruneBackups(FULL_DIR,'full_',5); /* 完整备份体积大，只保留最近 5 份 */
   }catch(e){toast('写入工作目录失败：'+((e&&(e.message||e.name))||'未知错误')+'，请检查目录权限');return;}
-  toast('完整备份已写入 '+wsPath(FULL_DIR+'/'+fname)+'（含 '+filesArr.length+' 个附件）');
+  toast('完整备份已写入 '+wsPath(FULL_DIR+'/'+fname)+'（含 '+filesArr.length+' 个附件'+(docCount?'、'+docCount+' 篇文档':'')+'）');
   if(document.querySelector('#tab-backup').classList.contains('active'))renderBackups();
   return fname;
 }
@@ -3161,6 +3494,32 @@ async function applyImportData(d){
       var blob=new Blob([bytes]);
       var path=await writeAttFile(blob,f.taskId,f.slot,f.name);
       t.atts.push({id:f.id||uid(),slot:f.slot,name:f.name,size:f.size||blob.size,isImg:!!f.isImg,file:path,ts:Date.now()});
+    }catch(e){}
+  }
+  /* [新增] 重建文件库：先清掉现有 docs/ 目录，再按备份重写 md 与图片（元数据由 normalizeData(d) 恢复） */
+  try{
+    var docsDh=await dirHandle.getDirectoryHandle('docs',{create:true});
+    try{
+      var imgsDh=await docsDh.getDirectoryHandle('images');
+      var imgNames=[];
+      for await (var ien of imgsDh.keys()){imgNames.push(ien);}
+      for(var i2=0;i2<imgNames.length;i2++){try{await imgsDh.removeEntry(imgNames[i2]);}catch(e){}}
+      await docsDh.removeEntry('images');
+    }catch(e){}
+    var mdNames=[];
+    for await (var den of docsDh.keys()){if(den!=='images')mdNames.push(den);}
+    for(var d3=0;d3<mdNames.length;d3++){try{await docsDh.removeEntry(mdNames[d3]);}catch(e){}}
+  }catch(e){}
+  for(var d4=0;d4<(d.docFiles||[]).length;d4++){
+    var df=d.docFiles[d4];
+    try{
+      if(df.kind==='md'){
+        await writeWorkFile('docs/'+df.name,new Blob([df.text||''],{type:'text/markdown'}));
+      }else if(df.kind==='img'){
+        var dbin=atob(df.b64);var dbytes=new Uint8Array(dbin.length);
+        for(var d5=0;d5<dbin.length;d5++)dbytes[d5]=dbin.charCodeAt(d5);
+        await writeWorkFile('docs/images/'+df.name,new Blob([dbytes]));
+      }
     }catch(e){}
   }
   await writeDataNow();
@@ -3204,6 +3563,7 @@ function activateTab(name){
   if(name==='review')renderReview();
   if(name==='monthly')renderMonthly();
   if(name==='know')renderKnows();
+  if(name==='docs')renderDocs(); /* [新增] 文件库 */
   if(name==='stats')renderStats();
   if(name==='calendar')renderCalendar();
   /* [新增] 备份页：进入即自动扫描工作目录 backups/（自动快照）与 fullbackup/（完整备份）下的可用备份，并刷新提醒状态 */
@@ -3220,6 +3580,8 @@ $('tmDesc').addEventListener('blur',function(){autoSaveTaskDesc();});
 $('tmFileSol').onchange=function(e){handleFiles(e.target.files,'sol');e.target.value='';};
 $('revFile').onchange=function(e){handleRevFiles(e.target.files);e.target.value='';};
 $('kmFile').onchange=function(e){importKnowFiles(e.target.files);e.target.value='';};
+/* [新增] 文件库：md + 图片一起选中上传，按文件名自动关联 */
+$('docFile').onchange=function(e){uploadDocFiles(e.target.files);e.target.value='';};
 $('btnExport').onclick=function(){exportData();};
 $('btnImport').onclick=function(){$('importFile').click();};
 $('importFile').onchange=function(e){
@@ -3229,14 +3591,28 @@ $('importFile').onchange=function(e){
 };
 $('btnWipe').onclick=function(){
   if(!requireDir())return;
-  askConfirm('清空全部数据','⚠ 此操作非常危险，可能导致不可逆的数据丢失！将清空工作目录中的 data.json 与全部附件文件（含复盘、知识点）。建议先「导出备份」。确定要清空吗？',async function(){
-    projects=[];tasks=[];reviews=[];knows=[];meta={sample:false};
+  askConfirm('清空全部数据','⚠ 此操作非常危险，可能导致不可逆的数据丢失！将清空工作目录中的 data.json、全部附件文件（含复盘、知识点）与文件库 docs/ 目录。建议先「导出备份」。确定要清空吗？',async function(){
+    projects=[];tasks=[];reviews=[];knows=[];docs=[];meta={sample:false};
     releaseAllAttUrls(); /* [FIX] 原先仅 urlCache={} 不 revoke */
     try{
       var dh=await dirHandle.getDirectoryHandle('attachments',{create:true});
       var names=[];
       for await (var name of dh.keys()){names.push(name);}
       for(var i=0;i<names.length;i++){try{await dh.removeEntry(names[i]);}catch(e){}}
+    }catch(e){}
+    /* [新增] 文件库目录一并清空（docs/*.md 与 docs/images/*） */
+    try{
+      var ddh=await dirHandle.getDirectoryHandle('docs');
+      try{
+        var idh=await ddh.getDirectoryHandle('images');
+        var inames=[];
+        for await (var iname of idh.keys()){inames.push(iname);}
+        for(var j=0;j<inames.length;j++){try{await idh.removeEntry(inames[j]);}catch(e){}}
+        await ddh.removeEntry('images');
+      }catch(e){}
+      var dnames=[];
+      for await (var dname of ddh.keys()){if(dname!=='images')dnames.push(dname);}
+      for(var k=0;k<dnames.length;k++){try{await ddh.removeEntry(dnames[k]);}catch(e){}}
     }catch(e){}
     await writeDataNow();
     renderAll();toast('工作目录数据已清空');
@@ -3250,6 +3626,7 @@ function renderAll(){
   if(document.querySelector('#tab-weekly').classList.contains('active'))renderWeekly();
   if(document.querySelector('#tab-monthly').classList.contains('active'))renderMonthly();
   if(document.querySelector('#tab-know').classList.contains('active'))renderKnows();
+  if(document.querySelector('#tab-docs').classList.contains('active'))renderDocs(); /* [新增] 文件库 */
   if(document.querySelector('#tab-stats').classList.contains('active'))renderStats();
   if(document.querySelector('#tab-calendar').classList.contains('active'))renderCalendar();
   /* [FIX] 原先每次 renderAll 都重建 #qaProject 选项，用户已选的所属项目会被悄悄重置回第一项，
