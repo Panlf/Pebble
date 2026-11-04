@@ -1028,21 +1028,31 @@ main{max-width:1080px; margin:0 auto; padding:14px 16px 0;}
     </div>
     <div class="modal-foot" style="flex:none;">
       <button class="btn" onclick="downloadDoc(currentDocId)">下载原文</button>
+      <button class="btn" onclick="closeDocPreview();openDocEdit(currentDocId)">编辑内容</button>
       <button class="btn btn-primary" onclick="closeDocPreview()">关闭</button>
     </div>
   </div>
 </div>
 
-<!-- ================= 文件库：重命名 / 标签编辑弹窗 ================= -->
+<!-- ================= 文件库：文档编辑弹窗（文件名 / 标签 / 正文 / 插图） ================= -->
 <div class="mask" id="docEditMask">
-  <div class="modal" style="max-width:460px">
-    <div class="modal-head"><h2 id="demTitle">编辑文档信息</h2>
+  <div class="modal" style="max-width:880px; width:94%">
+    <div class="modal-head"><h2 id="demTitle">编辑文档</h2>
       <button class="btn btn-icon" onclick="$('docEditMask').classList.remove('show')" aria-label="关闭">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
     </div>
     <div class="modal-sec"><label>文件名（改名将同步重命名工作目录中的文件）</label><input type="text" id="demName" placeholder="例如：TongWeb更新license.md"></div>
     <div class="modal-sec"><label>标签（用逗号或空格分隔，可多个）</label><input type="text" id="demTags" placeholder="例如：中间件, license, TongWeb"></div>
+    <div class="modal-sec">
+      <label>文档内容（Markdown；已关联的图片直接写 ![说明](图片文件名) 引用）</label>
+      <textarea id="demContent" style="min-height:340px; font-family:Consolas,'Courier New',monospace; font-size:12.5px; line-height:1.6; white-space:pre; overflow-x:auto;" placeholder="Markdown 正文，支持代码块、图片、列表…"></textarea>
+      <div class="att-zone" style="margin-top:8px" onclick="document.getElementById('demImgFile').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');insertDocImages(event.dataTransfer.files)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        点击或拖入图片，插入到正文光标处（图片存入 docs/images/ 并加入本文档引用）
+      </div>
+      <input type="file" id="demImgFile" multiple accept="image/*" style="display:none">
+    </div>
     <div class="modal-foot">
       <button class="btn btn-primary" onclick="saveDocEdit()">保存</button>
       <button class="btn" onclick="$('docEditMask').classList.remove('show')">取消</button>
@@ -2549,14 +2559,26 @@ async function openDocPreview(id){
   }
 }
 function closeDocPreview(){$('docPvMask').classList.remove('show');$('docPvBody').innerHTML='';}
-/* 编辑：改文件名（同步重命名磁盘文件）与标签 */
+/* 编辑：文件名（同步重命名磁盘文件）+ 标签 + Markdown 正文 + 编辑时插入图片。
+   编辑器里图片显示为原始文件名引用 ![alt](图片名)，保存时自动转回 pebbleimg:// 占位符写盘；
+   打开时反向转换，对用户全程看不到内部占位符。 */
 var editDocId=null;
 function openDocEdit(id){
   var x=docById(id);if(!x)return;
   editDocId=id;
   $('demName').value=x.name;
   $('demTags').value=(x.tags||[]).join('，');
+  $('demContent').value='加载中…';
   $('docEditMask').classList.add('show');
+  readDocText(x.file).then(function(txt){
+    if(editDocId!==id)return; /* 弹窗已被关闭或切换到别的文档，丢弃过期结果 */
+    $('demContent').value=String(txt).replace(/!\[([^\]]*)\]\(pebbleimg:\/\/([A-Za-z0-9]+)\)/g,function(m,alt,imgId){
+      var im=(x.imgs||[]).filter(function(q){return q.id===imgId;})[0];
+      return '!['+alt+']('+(im?im.name:'pebbleimg://'+imgId)+')';
+    });
+  }).catch(function(e){
+    if(editDocId===id){$('demContent').value='';toast('读取文件失败：'+(e.message||e.name));}
+  });
 }
 async function saveDocEdit(){
   var x=docById(editDocId);if(!x)return;
@@ -2564,21 +2586,57 @@ async function saveDocEdit(){
   if(!name){toast('文件名不能为空');return;}
   if(!/\.(md|markdown|txt)$/i.test(name))name+='.md';
   var tags=$('demTags').value.split(/[,，、\s]+/).map(function(t){return t.trim();}).filter(function(t){return !!t;});
-  var oldName=x.name;x.name=name;x.tags=tags;
-  if(name!==oldName&&x.file){
-    var dup=docs.some(function(d){return d.id!==x.id&&d.name===name;});
-    if(dup){x.name=oldName;toast('已存在同名文件，改名失败');return;}
-    try{
-      var txt=await readDocText(x.file);
-      var newPath=await writeWorkFile('docs/'+x.id+'_'+safeName(name),new Blob([txt],{type:'text/markdown'}));
+  var content=$('demContent').value;
+  /* 图片文件名引用 → pebbleimg:// 占位符（按已关联图片的文件名匹配，未匹配的引用原样保留） */
+  var nameToId={};
+  (x.imgs||[]).forEach(function(q){nameToId[q.name.toLowerCase()]=q.id;});
+  content=content.replace(DOC_IMG_RE,function(m,alt,src){
+    var pid=nameToId[docImgBase(src)];
+    return pid?'!['+alt+'](pebbleimg://'+pid+')':m;
+  });
+  var oldName=x.name;
+  x.name=name;x.tags=tags;
+  try{
+    if(name!==oldName){
+      var dup=docs.some(function(d){return d.id!==x.id&&d.name===name;});
+      if(dup){x.name=oldName;toast('已存在同名文件，改名失败');return;}
+      var newPath=await writeWorkFile('docs/'+x.id+'_'+safeName(name),new Blob([content],{type:'text/markdown'}));
       var oldPath=x.file;x.file=newPath;
       await removeWorkFile(oldPath);
-    }catch(e){x.name=oldName;toast('重命名失败：'+(e.message||e.name));return;}
-  }
+    }else{
+      await writeWorkFile(x.file,new Blob([content],{type:'text/markdown'}));
+    }
+  }catch(e){x.name=oldName;toast('保存失败：'+(e.message||e.name));return;}
   persist();
   $('docEditMask').classList.remove('show');
   renderDocs();
   toast('已保存');
+}
+/* 编辑时插入图片：落盘 docs/images/ 并加入文档引用，引用插入正文光标处（保存时统一转占位符）。
+   若用户取消保存，图片文件与索引仍在（引用未写入正文，属无害冗余，删除文档时一并清理） */
+async function insertDocImages(files){
+  var x=docById(editDocId);if(!x)return;
+  var ta=$('demContent');
+  var list=Array.prototype.slice.call(files||[]);
+  var inserted=0;
+  for(var i=0;i<list.length;i++){
+    var f=list[i],n=String(f.name||'');
+    if(!(/^image\//.test(f.type)||/\.(png|jpe?g|gif|bmp|webp|svg)$/i.test(n)))continue;
+    var dupImg=(x.imgs||[]).some(function(q){return q.name.toLowerCase()===n.toLowerCase();});
+    if(dupImg){toast('图片「'+n+'」已在本文档中，直接在正文写 ![说明]('+n+') 引用即可');continue;}
+    var iid=uid();
+    var fname='img_'+iid+'_'+safeName(n);
+    try{await writeWorkFile('docs/images/'+fname,f);}catch(e){toast('写入图片失败：'+(e.message||e.name));continue;}
+    x.imgs.push({id:iid,name:n,file:'docs/images/'+fname});
+    var pos=ta.selectionStart==null?ta.value.length:ta.selectionStart;
+    var end=ta.selectionEnd==null?pos:ta.selectionEnd;
+    var snip='!['+n+']('+n+')\n';
+    if(pos>0&&ta.value.charAt(pos-1)!=='\n')snip='\n'+snip;
+    ta.value=ta.value.slice(0,pos)+snip+ta.value.slice(end);
+    ta.selectionStart=ta.selectionEnd=pos+snip.length;
+    inserted++;
+  }
+  if(inserted){persist();ta.focus();toast('已插入 '+inserted+' 张图片，点「保存」写入文档');}
 }
 /* 下载：把工作目录中的原 md 文件回存到本地（占位符引用会随文件一起带出） */
 async function downloadDoc(id){
@@ -3582,6 +3640,8 @@ $('revFile').onchange=function(e){handleRevFiles(e.target.files);e.target.value=
 $('kmFile').onchange=function(e){importKnowFiles(e.target.files);e.target.value='';};
 /* [新增] 文件库：md + 图片一起选中上传，按文件名自动关联 */
 $('docFile').onchange=function(e){uploadDocFiles(e.target.files);e.target.value='';};
+/* [新增] 文件库编辑：拖入/选择图片插入正文光标处 */
+$('demImgFile').onchange=function(e){insertDocImages(e.target.files);e.target.value='';};
 $('btnExport').onclick=function(){exportData();};
 $('btnImport').onclick=function(){$('importFile').click();};
 $('importFile').onchange=function(e){
